@@ -1,13 +1,29 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { MainLayout } from '@/components/layout/MainLayout';
+import { BannerCarousel } from '@/components/home/BannerCarousel';
+import { CategoryScroll } from '@/components/home/CategoryScroll';
+import { SectionHeader } from '@/components/home/SectionHeader';
+import { ProductGrid } from '@/components/product/ProductGrid';
+import { useProducts } from '@/hooks/useProducts';
 
 const Index = () => {
+  const { data: products, isLoading } = useProducts({ limit: 10 });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <MainLayout>
+      {/* Banner Carousel */}
+      <BannerCarousel />
+
+      {/* Categories */}
+      <CategoryScroll />
+
+      {/* Featured Products */}
+      <section className="pb-6">
+        <SectionHeader title="Featured Products" href="/products" />
+        <div className="px-4">
+          <ProductGrid products={products} loading={isLoading} />
+        </div>
+      </section>
+    </MainLayout>
   );
 };
 
