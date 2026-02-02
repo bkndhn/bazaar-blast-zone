@@ -168,8 +168,8 @@ export default function Cart() {
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="text-lg font-bold">₹{subtotal.toLocaleString('en-IN')}</p>
           </div>
-          <Button className="px-8">
-            Checkout
+          <Button className="px-8" asChild>
+            <Link to="/checkout">Checkout</Link>
           </Button>
         </div>
       </div>
