@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -7,9 +7,11 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  Store
+  Store,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +19,7 @@ const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
   { icon: Package, label: 'Products', path: '/admin/products' },
   { icon: ShoppingCart, label: 'Orders', path: '/admin/orders' },
+  { icon: Users, label: 'CRM', path: '/admin/crm' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
@@ -29,6 +32,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, isAdmin, isSuperAdmin } = useAuth();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   // Redirect if not admin
   if (!isAdmin && !isSuperAdmin) {
@@ -56,7 +60,12 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             <span className="font-semibold">Seller Dashboard</span>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => setShowSignOutConfirm(true)} 
+          className="gap-2"
+        >
           <LogOut className="h-4 w-4" />
           Logout
         </Button>
@@ -97,7 +106,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
 
           {/* Content */}
-          <div className="p-4 md:p-6">
+          <div className="p-4 pb-20 md:p-6 md:pb-6">
             {children}
           </div>
         </main>
@@ -124,6 +133,16 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           );
         })}
       </nav>
+
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        onOpenChange={setShowSignOutConfirm}
+        title="Sign Out?"
+        description="Are you sure you want to sign out of your account?"
+        confirmText="Sign Out"
+        variant="destructive"
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Store } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
@@ -6,15 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { toast } from '@/hooks/use-toast';
 
 export default function AdminSettings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { upload: uploadLogo, uploading: uploadingLogo } = useImageUpload({ bucket: 'store-assets', folder: 'logos' });
+  const { upload: uploadBanner, uploading: uploadingBanner } = useImageUpload({ bucket: 'store-assets', folder: 'banners' });
 
   const { data: store, isLoading } = useQuery({
     queryKey: ['admin-store', user?.id],
@@ -38,7 +41,7 @@ export default function AdminSettings() {
   });
 
   // Update form when store data loads
-  useState(() => {
+  useEffect(() => {
     if (store) {
       setFormData({
         name: store.name || '',
@@ -47,7 +50,7 @@ export default function AdminSettings() {
         banner_url: store.banner_url || '',
       });
     }
-  });
+  }, [store]);
 
   const saveStore = useMutation({
     mutationFn: async () => {
@@ -98,6 +101,22 @@ export default function AdminSettings() {
     },
   });
 
+  const handleLogoUpload = async (file: File) => {
+    const url = await uploadLogo(file);
+    if (url) {
+      setFormData({ ...formData, logo_url: url });
+    }
+    return url;
+  };
+
+  const handleBannerUpload = async (file: File) => {
+    const url = await uploadBanner(file);
+    if (url) {
+      setFormData({ ...formData, banner_url: url });
+    }
+    return url;
+  };
+
   if (isLoading) {
     return (
       <AdminLayout title="Settings">
@@ -131,6 +150,31 @@ export default function AdminSettings() {
               }}
               className="space-y-4"
             >
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <Label>Store Logo</Label>
+                <ImageUpload
+                  value={formData.logo_url}
+                  onChange={(url) => setFormData({ ...formData, logo_url: url })}
+                  onUpload={handleLogoUpload}
+                  uploading={uploadingLogo}
+                  aspectRatio="square"
+                  className="max-w-[200px]"
+                />
+              </div>
+
+              {/* Banner Upload */}
+              <div className="space-y-2">
+                <Label>Store Banner</Label>
+                <ImageUpload
+                  value={formData.banner_url}
+                  onChange={(url) => setFormData({ ...formData, banner_url: url })}
+                  onUpload={handleBannerUpload}
+                  uploading={uploadingBanner}
+                  aspectRatio="banner"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Store Name *</Label>
                 <Input
@@ -150,26 +194,6 @@ export default function AdminSettings() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Tell customers about your store..."
                   rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="logo_url">Logo URL</Label>
-                <Input
-                  id="logo_url"
-                  value={formData.logo_url}
-                  onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="banner_url">Banner URL</Label>
-                <Input
-                  id="banner_url"
-                  value={formData.banner_url}
-                  onChange={(e) => setFormData({ ...formData, banner_url: e.target.value })}
-                  placeholder="https://..."
                 />
               </div>
 
@@ -198,7 +222,7 @@ export default function AdminSettings() {
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={saveStore.isPending}
+                disabled={saveStore.isPending || uploadingLogo || uploadingBanner}
               >
                 {saveStore.isPending 
                   ? 'Saving...' 

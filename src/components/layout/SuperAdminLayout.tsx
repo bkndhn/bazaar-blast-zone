@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -7,15 +7,18 @@ import {
   Store,
   LogOut,
   ChevronLeft,
-  Shield
+  Shield,
+  UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 const superAdminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/super-admin' },
   { icon: Users, label: 'Admins', path: '/super-admin/admins' },
+  { icon: UserCircle, label: 'Users', path: '/super-admin/users' },
   { icon: Store, label: 'Stores', path: '/super-admin/stores' },
   { icon: FolderTree, label: 'Categories', path: '/super-admin/categories' },
 ];
@@ -29,6 +32,7 @@ export function SuperAdminLayout({ children, title }: SuperAdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, isSuperAdmin } = useAuth();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   // Redirect if not super admin
   if (!isSuperAdmin) {
@@ -59,7 +63,7 @@ export function SuperAdminLayout({ children, title }: SuperAdminLayoutProps) {
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={handleSignOut} 
+          onClick={() => setShowSignOutConfirm(true)} 
           className="gap-2 text-primary-foreground hover:bg-primary-foreground/20"
         >
           <LogOut className="h-4 w-4" />
@@ -102,7 +106,7 @@ export function SuperAdminLayout({ children, title }: SuperAdminLayoutProps) {
           </div>
 
           {/* Content */}
-          <div className="p-4 md:p-6">
+          <div className="p-4 pb-20 md:p-6 md:pb-6">
             {children}
           </div>
         </main>
@@ -110,7 +114,7 @@ export function SuperAdminLayout({ children, title }: SuperAdminLayoutProps) {
 
       {/* Bottom Nav - Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-border bg-card md:hidden">
-        {superAdminNavItems.map((item) => {
+        {superAdminNavItems.slice(0, 5).map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           
@@ -119,7 +123,7 @@ export function SuperAdminLayout({ children, title }: SuperAdminLayoutProps) {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex flex-col items-center gap-1 px-3 py-2',
+                'flex flex-col items-center gap-1 px-2 py-2',
                 isActive ? 'text-primary' : 'text-muted-foreground'
               )}
             >
@@ -129,6 +133,16 @@ export function SuperAdminLayout({ children, title }: SuperAdminLayoutProps) {
           );
         })}
       </nav>
+
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        onOpenChange={setShowSignOutConfirm}
+        title="Sign Out?"
+        description="Are you sure you want to sign out of your account?"
+        confirmText="Sign Out"
+        variant="destructive"
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 }

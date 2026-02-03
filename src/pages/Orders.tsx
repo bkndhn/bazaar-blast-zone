@@ -78,7 +78,7 @@ export default function Orders() {
           {orders.map((order) => (
             <Link
               key={order.id}
-              to={`/orders/${order.id}`}
+              to={`/order/${order.id}`}
               className="block rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/50"
             >
               <div className="flex items-start justify-between">
