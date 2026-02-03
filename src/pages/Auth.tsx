@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'forgot-password';
 
 export default function Auth() {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -24,7 +25,24 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      if (mode === 'login') {
+      if (mode === 'forgot-password') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) {
+          toast({
+            title: 'Error',
+            description: error.message,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Email sent!',
+            description: 'Check your email for a password reset link.',
+          });
+          setMode('login');
+        }
+      } else if (mode === 'login') {
         const { error } = await signIn(email, password);
         if (error) {
           toast({
@@ -56,6 +74,22 @@ export default function Auth() {
     }
   };
 
+  const getTitle = () => {
+    switch (mode) {
+      case 'login': return 'Welcome Back';
+      case 'signup': return 'Create Account';
+      case 'forgot-password': return 'Reset Password';
+    }
+  };
+
+  const getDescription = () => {
+    switch (mode) {
+      case 'login': return 'Sign in to access your account';
+      case 'signup': return 'Sign up to start shopping';
+      case 'forgot-password': return 'Enter your email to receive a reset link';
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
@@ -71,14 +105,8 @@ export default function Auth() {
       <div className="flex flex-1 items-center justify-center px-4 pb-8">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">
-              {mode === 'login' ? 'Welcome Back' : 'Create Account'}
-            </CardTitle>
-            <CardDescription>
-              {mode === 'login' 
-                ? 'Sign in to access your account' 
-                : 'Sign up to start shopping'}
-            </CardDescription>
+            <CardTitle className="text-2xl">{getTitle()}</CardTitle>
+            <CardDescription>{getDescription()}</CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
@@ -115,29 +143,46 @@ export default function Auth() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                    required
-                    minLength={6}
-                  />
+              {mode !== 'forgot-password' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {mode === 'login' && (
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={() => setMode('forgot-password')}
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10"
+                      required
+                      minLength={6}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
 
             <CardFooter className="flex flex-col gap-4">
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading 
                   ? 'Please wait...' 
-                  : mode === 'login' ? 'Sign In' : 'Create Account'}
+                  : mode === 'login' 
+                    ? 'Sign In' 
+                    : mode === 'signup' 
+                      ? 'Create Account' 
+                      : 'Send Reset Link'}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
@@ -152,9 +197,20 @@ export default function Auth() {
                       Sign up
                     </button>
                   </>
-                ) : (
+                ) : mode === 'signup' ? (
                   <>
                     Already have an account?{' '}
+                    <button
+                      type="button"
+                      className="font-medium text-primary hover:underline"
+                      onClick={() => setMode('login')}
+                    >
+                      Sign in
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Remember your password?{' '}
                     <button
                       type="button"
                       className="font-medium text-primary hover:underline"

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -14,8 +15,8 @@ import {
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
 
 const menuItems = [
   { icon: Package, label: 'My Orders', href: '/orders' },
@@ -29,6 +30,7 @@ const menuItems = [
 export default function Account() {
   const { user, signOut, isSuperAdmin, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -131,12 +133,22 @@ export default function Account() {
         <Button
           variant="ghost"
           className="mt-4 w-full justify-start gap-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={handleSignOut}
+          onClick={() => setShowSignOutConfirm(true)}
         >
           <LogOut className="h-5 w-5" />
           Sign Out
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        onOpenChange={setShowSignOutConfirm}
+        title="Sign Out?"
+        description="Are you sure you want to sign out of your account?"
+        confirmText="Sign Out"
+        variant="destructive"
+        onConfirm={handleSignOut}
+      />
     </MainLayout>
   );
 }

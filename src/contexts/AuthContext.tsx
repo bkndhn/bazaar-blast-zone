@@ -44,6 +44,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateLastLogin = async (userId: string) => {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ last_login: new Date().toISOString() })
+        .eq('user_id', userId);
+    } catch (err) {
+      console.error('Error updating last login:', err);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -52,6 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Update last login on sign in
+          if (event === 'SIGNED_IN') {
+            setTimeout(() => updateLastLogin(session.user.id), 0);
+          }
+          
           // Defer role fetching to avoid blocking
           setTimeout(async () => {
             const userRoles = await fetchUserRoles(session.user.id);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Image } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { ImageUpload } from '@/components/ui/image-upload';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCategories } from '@/hooks/useCategories';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -35,6 +38,11 @@ export default function AdminProducts() {
   const { data: categories } = useCategories();
   const [isOpen, setIsOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; productId: string | null; productName: string }>({
+    open: false,
+    productId: null,
+    productName: '',
+  });
 
   const { data: store } = useQuery({
     queryKey: ['admin-store', user?.id],
@@ -71,12 +79,19 @@ export default function AdminProducts() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
+      // Delete images first
+      await supabase.from('product_images').delete().eq('product_id', id);
+      // Then delete product
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       toast({ title: 'Product deleted' });
+      setDeleteConfirm({ open: false, productId: null, productName: '' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -139,7 +154,7 @@ export default function AdminProducts() {
         </div>
       ) : !products?.length ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
-          <Image className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-lg font-medium">No products yet</p>
           <p className="mt-1 text-muted-foreground">
             Add your first product to start selling
@@ -172,11 +187,13 @@ export default function AdminProducts() {
                     </div>
                     <div className="flex items-center gap-1">
                       <span className={`rounded px-2 py-0.5 text-xs ${
-                        product.is_active 
-                          ? 'bg-success/20 text-success' 
-                          : 'bg-muted text-muted-foreground'
+                        product.stock_quantity === 0
+                          ? 'bg-destructive/20 text-destructive'
+                          : product.is_active 
+                            ? 'bg-success/20 text-success' 
+                            : 'bg-muted text-muted-foreground'
                       }`}>
-                        {product.is_active ? 'Active' : 'Inactive'}
+                        {product.stock_quantity === 0 ? 'Out of Stock' : product.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                   </div>
@@ -196,7 +213,11 @@ export default function AdminProducts() {
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => deleteProduct.mutate(product.id)}
+                      onClick={() => setDeleteConfirm({ 
+                        open: true, 
+                        productId: product.id,
+                        productName: product.name
+                      })}
                     >
                       <Trash2 className="mr-1 h-3 w-3" />
                       Delete
@@ -208,6 +229,17 @@ export default function AdminProducts() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}
+        title="Delete Product?"
+        description={`Are you sure you want to delete "${deleteConfirm.productName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={() => deleteConfirm.productId && deleteProduct.mutate(deleteConfirm.productId)}
+        loading={deleteProduct.isPending}
+      />
     </AdminLayout>
   );
 }
@@ -221,6 +253,7 @@ interface ProductFormProps {
 
 function ProductForm({ product, storeId, categories, onSuccess }: ProductFormProps) {
   const { user } = useAuth();
+  const { upload, uploading } = useImageUpload({ bucket: 'product-images' });
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: product?.name || '',
@@ -233,6 +266,14 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
     is_active: product?.is_active ?? true,
     image_url: product?.images?.[0]?.image_url || '',
   });
+
+  const handleImageUpload = async (file: File) => {
+    const url = await upload(file);
+    if (url) {
+      setFormData({ ...formData, image_url: url });
+    }
+    return url;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,6 +344,18 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Image Upload */}
+      <div className="space-y-2">
+        <Label>Product Image</Label>
+        <ImageUpload
+          value={formData.image_url}
+          onChange={(url) => setFormData({ ...formData, image_url: url })}
+          onUpload={handleImageUpload}
+          uploading={uploading}
+          aspectRatio="square"
+        />
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="name">Product Name *</Label>
         <Input
@@ -387,16 +440,6 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="image_url">Image URL</Label>
-        <Input
-          id="image_url"
-          value={formData.image_url}
-          onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-          placeholder="https://..."
-        />
-      </div>
-
       <div className="flex items-center gap-2">
         <Switch
           id="is_active"
@@ -406,7 +449,7 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
         <Label htmlFor="is_active">Active (visible to customers)</Label>
       </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
+      <Button type="submit" className="w-full" disabled={loading || uploading}>
         {loading ? 'Saving...' : product ? 'Update Product' : 'Create Product'}
       </Button>
     </form>
