@@ -10,6 +10,20 @@ import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 
+interface AdminWithProfile {
+  id: string;
+  user_id: string;
+  store_name: string;
+  status: 'active' | 'paused';
+  created_at: string;
+  profile: {
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+    last_login: string | null;
+  } | null;
+}
+
 export default function SuperAdminAdmins() {
   const queryClient = useQueryClient();
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; userId: string | null; storeName: string }>({
@@ -21,16 +35,31 @@ export default function SuperAdminAdmins() {
   const { data: admins, isLoading, refetch } = useQuery({
     queryKey: ['all-admins'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get all admin accounts
+      const { data: adminAccounts, error: adminError } = await supabase
         .from('admin_accounts')
-        .select(`
-          *,
-          profile:profiles(full_name, email, phone, last_login)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (adminError) throw adminError;
+      if (!adminAccounts?.length) return [];
+
+      // Get profiles for all admin user_ids
+      const userIds = adminAccounts.map(a => a.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email, phone, last_login')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Map profiles to admin accounts
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]));
+      
+      return adminAccounts.map(admin => ({
+        ...admin,
+        profile: profileMap.get(admin.user_id) || null,
+      })) as AdminWithProfile[];
     },
   });
 
@@ -145,7 +174,7 @@ export default function SuperAdminAdmins() {
           <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-lg font-medium">No admins yet</p>
           <p className="mt-1 text-muted-foreground">
-            Admins will appear here when they register
+            Promote users to admin from the Users page
           </p>
         </div>
       ) : (
@@ -169,17 +198,17 @@ export default function SuperAdminAdmins() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {(admin as any).profile?.full_name || (admin as any).profile?.email || 'No email'}
+                    {admin.profile?.full_name || admin.profile?.email || 'No email'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {(admin as any).profile?.phone || 'No phone'}
+                    {admin.profile?.phone || 'No phone'}
                   </p>
                   <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                     <span>Registered: {format(new Date(admin.created_at), 'MMM d, yyyy')}</span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      Last login: {(admin as any).profile?.last_login 
-                        ? format(new Date((admin as any).profile.last_login), 'MMM d, HH:mm')
+                      Last login: {admin.profile?.last_login 
+                        ? format(new Date(admin.profile.last_login), 'MMM d, HH:mm')
                         : 'Never'}
                     </span>
                   </div>

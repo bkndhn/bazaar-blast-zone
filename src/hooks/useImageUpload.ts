@@ -5,9 +5,82 @@ import { toast } from '@/hooks/use-toast';
 interface UseImageUploadOptions {
   bucket: 'product-images' | 'store-assets';
   folder?: string;
+  maxSizeKB?: number;
 }
 
-export function useImageUpload({ bucket, folder = '' }: UseImageUploadOptions) {
+// Compress image to target size
+async function compressImage(file: File, maxSizeKB: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        
+        // Start with original dimensions
+        let quality = 0.9;
+        const maxSize = maxSizeKB * 1024;
+        
+        // If file is already small enough, return it
+        if (file.size <= maxSize) {
+          resolve(file);
+          return;
+        }
+
+        // Calculate scale factor based on file size
+        const scaleFactor = Math.sqrt(maxSize / file.size);
+        if (scaleFactor < 1) {
+          width = Math.floor(width * scaleFactor);
+          height = Math.floor(height * scaleFactor);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Try to compress to target size
+        const tryCompress = (q: number) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Compression failed'));
+                return;
+              }
+              
+              if (blob.size <= maxSize || q <= 0.1) {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                tryCompress(q - 0.1);
+              }
+            },
+            'image/jpeg',
+            q
+          );
+        };
+
+        tryCompress(quality);
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export function useImageUpload({ bucket, folder = '', maxSizeKB = 100 }: UseImageUploadOptions) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -24,11 +97,11 @@ export function useImageUpload({ bucket, folder = '' }: UseImageUploadOptions) {
       return null;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file size (max 10MB before compression)
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: 'File too large',
-        description: 'Maximum file size is 5MB',
+        description: 'Maximum file size is 10MB',
         variant: 'destructive',
       });
       return null;
@@ -38,12 +111,17 @@ export function useImageUpload({ bucket, folder = '' }: UseImageUploadOptions) {
     setProgress(0);
 
     try {
-      const fileExt = file.name.split('.').pop();
+      // Compress image to target size
+      setProgress(20);
+      const compressedFile = await compressImage(file, maxSizeKB);
+      setProgress(50);
+
+      const fileExt = 'jpg'; // Always save as jpg after compression
       const fileName = `${folder ? folder + '/' : ''}${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(fileName, file, {
+        .upload(fileName, compressedFile, {
           cacheControl: '3600',
           upsert: false,
         });
@@ -69,6 +147,15 @@ export function useImageUpload({ bucket, folder = '' }: UseImageUploadOptions) {
     }
   };
 
+  const uploadMultiple = async (files: File[]): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const file of files) {
+      const url = await upload(file);
+      if (url) urls.push(url);
+    }
+    return urls;
+  };
+
   const deleteImage = async (url: string): Promise<boolean> => {
     try {
       // Extract file path from URL
@@ -91,5 +178,5 @@ export function useImageUpload({ bucket, folder = '' }: UseImageUploadOptions) {
     }
   };
 
-  return { upload, deleteImage, uploading, progress };
+  return { upload, uploadMultiple, deleteImage, uploading, progress };
 }

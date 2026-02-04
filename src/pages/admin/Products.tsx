@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { ImageUpload } from '@/components/ui/image-upload';
+import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,13 @@ import { useCategories } from '@/hooks/useCategories';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+
+interface ProductImage {
+  id: string;
+  image_url: string;
+  is_primary: boolean;
+  sort_order: number;
+}
 
 interface Product {
   id: string;
@@ -29,7 +36,7 @@ interface Product {
   is_active: boolean;
   category_id: string | null;
   store_id: string;
-  images: { id: string; image_url: string; is_primary: boolean }[];
+  images: ProductImage[];
 }
 
 export default function AdminProducts() {
@@ -66,7 +73,7 @@ export default function AdminProducts() {
         .from('products')
         .select(`
           *,
-          images:product_images(id, image_url, is_primary)
+          images:product_images(id, image_url, is_primary, sort_order)
         `)
         .eq('admin_id', user.id)
         .order('created_at', { ascending: false });
@@ -183,6 +190,7 @@ export default function AdminProducts() {
                       <h3 className="font-medium">{product.name}</h3>
                       <p className="text-sm text-muted-foreground">
                         ₹{product.price.toLocaleString('en-IN')} • Stock: {product.stock_quantity}
+                        {product.images?.length > 1 && ` • ${product.images.length} images`}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -253,8 +261,11 @@ interface ProductFormProps {
 
 function ProductForm({ product, storeId, categories, onSuccess }: ProductFormProps) {
   const { user } = useAuth();
-  const { upload, uploading } = useImageUpload({ bucket: 'product-images' });
+  const { uploadMultiple, uploading } = useImageUpload({ bucket: 'product-images', maxSizeKB: 100 });
   const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<{ url: string; is_primary?: boolean }[]>(
+    product?.images?.map(img => ({ url: img.image_url, is_primary: img.is_primary })) || []
+  );
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
@@ -264,15 +275,40 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
     stock_quantity: product?.stock_quantity?.toString() || '0',
     category_id: product?.category_id || '',
     is_active: product?.is_active ?? true,
-    image_url: product?.images?.[0]?.image_url || '',
   });
 
-  const handleImageUpload = async (file: File) => {
-    const url = await upload(file);
-    if (url) {
-      setFormData({ ...formData, image_url: url });
+  // Reset form when product changes
+  useEffect(() => {
+    if (product) {
+      setImages(product.images?.map(img => ({ url: img.image_url, is_primary: img.is_primary })) || []);
+      setFormData({
+        name: product.name || '',
+        description: product.description || '',
+        price: product.price?.toString() || '',
+        compare_at_price: product.compare_at_price?.toString() || '',
+        sku: product.sku || '',
+        stock_quantity: product.stock_quantity?.toString() || '0',
+        category_id: product.category_id || '',
+        is_active: product.is_active ?? true,
+      });
+    } else {
+      setImages([]);
+      setFormData({
+        name: '',
+        description: '',
+        price: '',
+        compare_at_price: '',
+        sku: '',
+        stock_quantity: '0',
+        category_id: '',
+        is_active: true,
+      });
     }
-    return url;
+  }, [product]);
+
+  const handleImageUpload = async (files: File[]) => {
+    const urls = await uploadMultiple(files);
+    return urls;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -294,25 +330,14 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
         store_id: storeId,
       };
 
+      let productId = product?.id;
+
       if (product) {
         const { error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', product.id);
         if (error) throw error;
-
-        // Update image
-        if (formData.image_url) {
-          await supabase.from('product_images').delete().eq('product_id', product.id);
-          await supabase.from('product_images').insert({
-            product_id: product.id,
-            admin_id: user.id,
-            image_url: formData.image_url,
-            is_primary: true,
-          });
-        }
-
-        toast({ title: 'Product updated' });
       } else {
         const { data: newProduct, error } = await supabase
           .from('products')
@@ -320,20 +345,31 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
           .select()
           .single();
         if (error) throw error;
-
-        // Add image
-        if (formData.image_url) {
-          await supabase.from('product_images').insert({
-            product_id: newProduct.id,
-            admin_id: user.id,
-            image_url: formData.image_url,
-            is_primary: true,
-          });
-        }
-
-        toast({ title: 'Product created' });
+        productId = newProduct.id;
       }
 
+      // Handle images - delete old ones and insert new ones
+      if (productId) {
+        await supabase.from('product_images').delete().eq('product_id', productId);
+        
+        if (images.length > 0) {
+          const imageRecords = images.map((img, index) => ({
+            product_id: productId,
+            admin_id: user.id,
+            image_url: img.url,
+            is_primary: img.is_primary || index === 0,
+            sort_order: index,
+          }));
+
+          const { error: imgError } = await supabase
+            .from('product_images')
+            .insert(imageRecords);
+          
+          if (imgError) throw imgError;
+        }
+      }
+
+      toast({ title: product ? 'Product updated' : 'Product created' });
       onSuccess();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -344,15 +380,15 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Image Upload */}
+      {/* Multi Image Upload */}
       <div className="space-y-2">
-        <Label>Product Image</Label>
-        <ImageUpload
-          value={formData.image_url}
-          onChange={(url) => setFormData({ ...formData, image_url: url })}
+        <Label>Product Images (up to 5)</Label>
+        <MultiImageUpload
+          images={images}
+          onChange={setImages}
           onUpload={handleImageUpload}
           uploading={uploading}
-          aspectRatio="square"
+          maxImages={5}
         />
       </div>
 
