@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Store } from 'lucide-react';
+import { Store, Truck, Clock } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,11 +33,32 @@ export default function AdminSettings() {
     enabled: !!user,
   });
 
+  const { data: adminSettings } = useQuery({
+    queryKey: ['admin-settings', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from('admin_settings')
+        .select('*')
+        .eq('admin_id', user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     logo_url: '',
     banner_url: '',
+  });
+
+  const [deliverySettings, setDeliverySettings] = useState({
+    delivery_within_tamilnadu_days: 3,
+    delivery_outside_tamilnadu_days: 7,
+    shipping_cost_within_tamilnadu: 40,
+    shipping_cost_outside_tamilnadu: 80,
   });
 
   // Update form when store data loads
@@ -51,6 +72,18 @@ export default function AdminSettings() {
       });
     }
   }, [store]);
+
+  // Update delivery settings when data loads
+  useEffect(() => {
+    if (adminSettings) {
+      setDeliverySettings({
+        delivery_within_tamilnadu_days: adminSettings.delivery_within_tamilnadu_days || 3,
+        delivery_outside_tamilnadu_days: adminSettings.delivery_outside_tamilnadu_days || 7,
+        shipping_cost_within_tamilnadu: adminSettings.shipping_cost_within_tamilnadu || 40,
+        shipping_cost_outside_tamilnadu: adminSettings.shipping_cost_outside_tamilnadu || 80,
+      });
+    }
+  }, [adminSettings]);
 
   const saveStore = useMutation({
     mutationFn: async () => {
@@ -101,6 +134,28 @@ export default function AdminSettings() {
     },
   });
 
+  const saveDeliverySettings = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('admin_settings')
+        .upsert({
+          admin_id: user.id,
+          ...deliverySettings,
+        }, { onConflict: 'admin_id' });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+      toast({ title: 'Delivery settings saved' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const handleLogoUpload = async (file: File) => {
     const url = await uploadLogo(file);
     if (url) {
@@ -130,6 +185,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings">
       <div className="max-w-2xl space-y-6">
+        {/* Store Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -227,6 +283,102 @@ export default function AdminSettings() {
                 {saveStore.isPending 
                   ? 'Saving...' 
                   : store ? 'Update Store' : 'Create Store'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Delivery Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Delivery Settings
+            </CardTitle>
+            <CardDescription>
+              Configure estimated delivery times and shipping costs
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveDeliverySettings.mutate();
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Within Tamil Nadu (days)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={deliverySettings.delivery_within_tamilnadu_days}
+                    onChange={(e) => setDeliverySettings({
+                      ...deliverySettings,
+                      delivery_within_tamilnadu_days: parseInt(e.target.value) || 3,
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Outside Tamil Nadu (days)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={deliverySettings.delivery_outside_tamilnadu_days}
+                    onChange={(e) => setDeliverySettings({
+                      ...deliverySettings,
+                      delivery_outside_tamilnadu_days: parseInt(e.target.value) || 7,
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Shipping Cost - Tamil Nadu (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={deliverySettings.shipping_cost_within_tamilnadu}
+                    onChange={(e) => setDeliverySettings({
+                      ...deliverySettings,
+                      shipping_cost_within_tamilnadu: parseFloat(e.target.value) || 0,
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Shipping Cost - Outside (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={deliverySettings.shipping_cost_outside_tamilnadu}
+                    onChange={(e) => setDeliverySettings({
+                      ...deliverySettings,
+                      shipping_cost_outside_tamilnadu: parseFloat(e.target.value) || 0,
+                    })}
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                These settings are used to calculate estimated delivery dates shown to customers.
+              </p>
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={saveDeliverySettings.isPending}
+              >
+                {saveDeliverySettings.isPending ? 'Saving...' : 'Save Delivery Settings'}
               </Button>
             </form>
           </CardContent>

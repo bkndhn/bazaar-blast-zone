@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, UserPlus, Search, ShieldCheck } from 'lucide-react';
+import { Users, ShieldCheck, Search, Clock } from 'lucide-react';
 import { SuperAdminLayout } from '@/components/layout/SuperAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,48 +9,92 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+
+interface UserWithRoles {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+  last_login: string | null;
+  roles: string[];
+  isAdmin: boolean;
+}
 
 export default function SuperAdminUsers() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [promoteDialog, setPromoteDialog] = useState<{ open: boolean; user: any | null }>({
+  const [promoteDialog, setPromoteDialog] = useState<{ open: boolean; user: UserWithRoles | null }>({
     open: false,
     user: null,
   });
   const [storeName, setStoreName] = useState('');
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading, refetch } = useQuery({
     queryKey: ['all-users'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get all profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
+      if (!profiles?.length) return [];
 
-      // Get roles for each user
-      const { data: roles } = await supabase
+      // Get all roles
+      const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
+      if (rolesError) throw rolesError;
+
       // Get admin accounts to check who's already an admin
-      const { data: adminAccounts } = await supabase
+      const { data: adminAccounts, error: adminError } = await supabase
         .from('admin_accounts')
         .select('user_id');
 
-      const adminUserIds = new Set(adminAccounts?.map(a => a.user_id));
+      if (adminError) throw adminError;
 
-      return data.map(user => ({
+      const adminUserIds = new Set(adminAccounts?.map(a => a.user_id));
+      const rolesMap = new Map<string, string[]>();
+      
+      roles?.forEach(r => {
+        const existing = rolesMap.get(r.user_id) || [];
+        existing.push(r.role);
+        rolesMap.set(r.user_id, existing);
+      });
+
+      return profiles.map(user => ({
         ...user,
-        roles: roles?.filter(r => r.user_id === user.user_id).map(r => r.role) || [],
+        roles: rolesMap.get(user.user_id) || [],
         isAdmin: adminUserIds.has(user.user_id),
-      }));
+      })) as UserWithRoles[];
     },
   });
+
+  // Real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('users-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => refetch()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_roles' },
+        () => refetch()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
 
   const filteredUsers = users?.filter(u => 
     u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -66,24 +110,24 @@ export default function SuperAdminUsers() {
       
       if (roleError && !roleError.message.includes('duplicate')) throw roleError;
 
-      // Create admin account
+      // Create admin account (paused by default)
       const { error: accountError } = await supabase
         .from('admin_accounts')
         .insert({ 
           user_id: userId, 
           store_name: storeName,
-          status: 'active'
+          status: 'paused' // New admins are paused by default
         });
       
       if (accountError) throw accountError;
 
-      // Create store
+      // Create store (inactive by default)
       const { error: storeError } = await supabase
         .from('stores')
         .insert({
           admin_id: userId,
           name: storeName,
-          is_active: true,
+          is_active: false,
         });
 
       if (storeError) throw storeError;
@@ -94,7 +138,7 @@ export default function SuperAdminUsers() {
       queryClient.invalidateQueries({ queryKey: ['all-stores'] });
       toast({ 
         title: 'User promoted to Admin',
-        description: 'They can now access the seller dashboard'
+        description: 'They are now paused. Activate them from the Admins page.'
       });
       setPromoteDialog({ open: false, user: null });
       setStoreName('');
@@ -168,9 +212,12 @@ export default function SuperAdminUsers() {
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                   <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
                     <span>Joined: {format(new Date(user.created_at), 'MMM d, yyyy')}</span>
-                    <span>Last login: {user.last_login 
-                      ? format(new Date(user.last_login), 'MMM d, HH:mm')
-                      : 'Never'}</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Last login: {user.last_login 
+                        ? format(new Date(user.last_login), 'MMM d, HH:mm')
+                        : 'Never'}
+                    </span>
                   </div>
                 </div>
 
@@ -207,6 +254,8 @@ export default function SuperAdminUsers() {
             <DialogDescription>
               Make "{promoteDialog.user?.full_name || promoteDialog.user?.email}" a store admin.
               They'll be able to manage products, orders, and their own store.
+              <br /><br />
+              <strong>Note:</strong> New admins are paused by default. You can activate them from the Admins page.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

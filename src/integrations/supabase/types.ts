@@ -89,6 +89,87 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_settings: {
+        Row: {
+          admin_id: string
+          created_at: string
+          delivery_outside_tamilnadu_days: number | null
+          delivery_within_tamilnadu_days: number | null
+          id: string
+          shipping_cost_outside_tamilnadu: number | null
+          shipping_cost_within_tamilnadu: number | null
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          delivery_outside_tamilnadu_days?: number | null
+          delivery_within_tamilnadu_days?: number | null
+          id?: string
+          shipping_cost_outside_tamilnadu?: number | null
+          shipping_cost_within_tamilnadu?: number | null
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          delivery_outside_tamilnadu_days?: number | null
+          delivery_within_tamilnadu_days?: number | null
+          id?: string
+          shipping_cost_outside_tamilnadu?: number | null
+          shipping_cost_within_tamilnadu?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      banner_ads: {
+        Row: {
+          admin_id: string
+          background_color: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          link_url: string | null
+          sort_order: number | null
+          text_color: string | null
+          text_content: string | null
+          title: string | null
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          background_color?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          link_url?: string | null
+          sort_order?: number | null
+          text_color?: string | null
+          text_content?: string | null
+          title?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          background_color?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          link_url?: string | null
+          sort_order?: number | null
+          text_color?: string | null
+          text_content?: string | null
+          title?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           created_at: string
@@ -159,6 +240,41 @@ export type Database = {
           },
         ]
       }
+      order_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          order_id: string
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_feedback_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           admin_id: string
@@ -213,49 +329,102 @@ export type Database = {
           },
         ]
       }
-      orders: {
+      order_status_history: {
         Row: {
-          address_id: string | null
           admin_id: string
           created_at: string
           id: string
           notes: string | null
+          order_id: string
+          status: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          status: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          address_id: string | null
+          admin_id: string
+          courier_service: string | null
+          courier_tracking_url: string | null
+          created_at: string
+          delivered_at: string | null
+          estimated_delivery_date: string | null
+          id: string
+          notes: string | null
           order_number: string
+          shipped_at: string | null
           shipping_cost: number
           status: string
           store_id: string | null
           subtotal: number
           total: number
+          tracking_number: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           address_id?: string | null
           admin_id: string
+          courier_service?: string | null
+          courier_tracking_url?: string | null
           created_at?: string
+          delivered_at?: string | null
+          estimated_delivery_date?: string | null
           id?: string
           notes?: string | null
           order_number: string
+          shipped_at?: string | null
           shipping_cost?: number
           status?: string
           store_id?: string | null
           subtotal: number
           total: number
+          tracking_number?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           address_id?: string | null
           admin_id?: string
+          courier_service?: string | null
+          courier_tracking_url?: string | null
           created_at?: string
+          delivered_at?: string | null
+          estimated_delivery_date?: string | null
           id?: string
           notes?: string | null
           order_number?: string
+          shipped_at?: string | null
           shipping_cost?: number
           status?: string
           store_id?: string | null
           subtotal?: number
           total?: number
+          tracking_number?: string | null
           updated_at?: string
           user_id?: string | null
         }
