@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Package } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCategories } from '@/hooks/useCategories';
+import { useAdminCategories } from '@/hooks/useAdminCategories';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,12 +38,28 @@ interface Product {
   category_id: string | null;
   store_id: string;
   images: ProductImage[];
+  unit_type?: string;
+  unit_value?: number;
+  unit_label?: string;
+  usage_instructions?: string;
+  storage_instructions?: string;
+  extra_notes?: string;
+  min_quantity?: number;
+  max_quantity?: number;
 }
+
+const UNIT_TYPES = [
+  { value: 'piece', label: 'Pieces', units: ['pc', 'pcs', 'unit', 'units'] },
+  { value: 'weight', label: 'Weight', units: ['g', 'kg', '100g', '250g', '500g'] },
+  { value: 'volume', label: 'Volume', units: ['ml', 'l', '100ml', '250ml', '500ml', '1L'] },
+  { value: 'length', label: 'Length', units: ['cm', 'm', 'inch', 'ft'] },
+  { value: 'custom', label: 'Custom', units: [] },
+];
 
 export default function AdminProducts() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data: categories } = useCategories();
+  const { data: categories } = useAdminCategories();
   const [isOpen, setIsOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; productId: string | null; productName: string }>({
@@ -266,6 +283,7 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
   const [images, setImages] = useState<{ url: string; is_primary?: boolean }[]>(
     product?.images?.map(img => ({ url: img.image_url, is_primary: img.is_primary })) || []
   );
+  const [customUnit, setCustomUnit] = useState('');
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
@@ -275,6 +293,14 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
     stock_quantity: product?.stock_quantity?.toString() || '0',
     category_id: product?.category_id || '',
     is_active: product?.is_active ?? true,
+    unit_type: product?.unit_type || 'piece',
+    unit_value: product?.unit_value?.toString() || '1',
+    unit_label: product?.unit_label || 'pc',
+    usage_instructions: product?.usage_instructions || '',
+    storage_instructions: product?.storage_instructions || '',
+    extra_notes: product?.extra_notes || '',
+    min_quantity: product?.min_quantity?.toString() || '1',
+    max_quantity: product?.max_quantity?.toString() || '10',
   });
 
   // Reset form when product changes
@@ -290,6 +316,14 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
         stock_quantity: product.stock_quantity?.toString() || '0',
         category_id: product.category_id || '',
         is_active: product.is_active ?? true,
+        unit_type: product.unit_type || 'piece',
+        unit_value: product.unit_value?.toString() || '1',
+        unit_label: product.unit_label || 'pc',
+        usage_instructions: product.usage_instructions || '',
+        storage_instructions: product.storage_instructions || '',
+        extra_notes: product.extra_notes || '',
+        min_quantity: product.min_quantity?.toString() || '1',
+        max_quantity: product.max_quantity?.toString() || '10',
       });
     } else {
       setImages([]);
@@ -302,6 +336,14 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
         stock_quantity: '0',
         category_id: '',
         is_active: true,
+        unit_type: 'piece',
+        unit_value: '1',
+        unit_label: 'pc',
+        usage_instructions: '',
+        storage_instructions: '',
+        extra_notes: '',
+        min_quantity: '1',
+        max_quantity: '10',
       });
     }
   }, [product]);
@@ -328,6 +370,14 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
         is_active: formData.is_active,
         admin_id: user.id,
         store_id: storeId,
+        unit_type: formData.unit_type,
+        unit_value: parseFloat(formData.unit_value) || 1,
+        unit_label: formData.unit_label,
+        usage_instructions: formData.usage_instructions || null,
+        storage_instructions: formData.storage_instructions || null,
+        extra_notes: formData.extra_notes || null,
+        min_quantity: parseInt(formData.min_quantity) || 1,
+        max_quantity: parseInt(formData.max_quantity) || 10,
       };
 
       let productId = product?.id;
@@ -378,112 +428,242 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
     }
   };
 
+  const selectedUnitType = UNIT_TYPES.find(u => u.value === formData.unit_type);
+  const availableUnits = selectedUnitType?.units || [];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Multi Image Upload */}
-      <div className="space-y-2">
-        <Label>Product Images (up to 5)</Label>
-        <MultiImageUpload
-          images={images}
-          onChange={setImages}
-          onUpload={handleImageUpload}
-          uploading={uploading}
-          maxImages={5}
-        />
-      </div>
+      <Tabs defaultValue="basic" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="basic">Basic Info</TabsTrigger>
+          <TabsTrigger value="pricing">Pricing & Stock</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
+        </TabsList>
 
-      <div className="space-y-2">
-        <Label htmlFor="name">Product Name *</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-        />
-      </div>
+        <TabsContent value="basic" className="space-y-4 pt-4">
+          {/* Multi Image Upload */}
+          <div className="space-y-2">
+            <Label>Product Images (up to 10)</Label>
+            <MultiImageUpload
+              images={images}
+              onChange={setImages}
+              onUpload={handleImageUpload}
+              uploading={uploading}
+              maxImages={10}
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          rows={3}
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="name">Product Name *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="price">Price (₹) *</Label>
-          <Input
-            id="price"
-            type="number"
-            step="0.01"
-            value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="compare_at_price">Compare at Price</Label>
-          <Input
-            id="compare_at_price"
-            type="number"
-            step="0.01"
-            value={formData.compare_at_price}
-            onChange={(e) => setFormData({ ...formData, compare_at_price: e.target.value })}
-          />
-        </div>
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={3}
+              placeholder="Describe your product..."
+            />
+          </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="sku">SKU</Label>
-          <Input
-            id="sku"
-            value={formData.sku}
-            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="stock_quantity">Stock Quantity *</Label>
-          <Input
-            id="stock_quantity"
-            type="number"
-            value={formData.stock_quantity}
-            onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-            required
-          />
-        </div>
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Select
+              value={formData.category_id}
+              onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories?.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </TabsContent>
 
-      <div className="space-y-2">
-        <Label htmlFor="category">Category</Label>
-        <Select
-          value={formData.category_id}
-          onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        <TabsContent value="pricing" className="space-y-4 pt-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="price">Price (₹) *</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="compare_at_price">Compare at Price</Label>
+              <Input
+                id="compare_at_price"
+                type="number"
+                step="0.01"
+                value={formData.compare_at_price}
+                onChange={(e) => setFormData({ ...formData, compare_at_price: e.target.value })}
+              />
+            </div>
+          </div>
 
-      <div className="flex items-center gap-2">
-        <Switch
-          id="is_active"
-          checked={formData.is_active}
-          onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-        />
-        <Label htmlFor="is_active">Active (visible to customers)</Label>
-      </div>
+          <div className="space-y-2">
+            <Label>Unit Type</Label>
+            <Select
+              value={formData.unit_type}
+              onValueChange={(value) => setFormData({ ...formData, unit_type: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select unit type" />
+              </SelectTrigger>
+              <SelectContent>
+                {UNIT_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="unit_value">Unit Value</Label>
+              <Input
+                id="unit_value"
+                type="number"
+                step="0.01"
+                value={formData.unit_value}
+                onChange={(e) => setFormData({ ...formData, unit_value: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Unit Label</Label>
+              {availableUnits.length > 0 ? (
+                <Select
+                  value={formData.unit_label}
+                  onValueChange={(value) => setFormData({ ...formData, unit_label: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUnits.map((unit) => (
+                      <SelectItem key={unit} value={unit}>
+                        {unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={formData.unit_label}
+                  onChange={(e) => setFormData({ ...formData, unit_label: e.target.value })}
+                  placeholder="e.g., dozen, box"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="sku">SKU</Label>
+              <Input
+                id="sku"
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="stock_quantity">Stock Quantity *</Label>
+              <Input
+                id="stock_quantity"
+                type="number"
+                value={formData.stock_quantity}
+                onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="min_quantity">Min Quantity</Label>
+              <Input
+                id="min_quantity"
+                type="number"
+                value={formData.min_quantity}
+                onChange={(e) => setFormData({ ...formData, min_quantity: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="max_quantity">Max Quantity</Label>
+              <Input
+                id="max_quantity"
+                type="number"
+                value={formData.max_quantity}
+                onChange={(e) => setFormData({ ...formData, max_quantity: e.target.value })}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="details" className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="usage_instructions">Usage Instructions</Label>
+            <Textarea
+              id="usage_instructions"
+              value={formData.usage_instructions}
+              onChange={(e) => setFormData({ ...formData, usage_instructions: e.target.value })}
+              rows={3}
+              placeholder="How to use this product..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="storage_instructions">Storage Instructions</Label>
+            <Textarea
+              id="storage_instructions"
+              value={formData.storage_instructions}
+              onChange={(e) => setFormData({ ...formData, storage_instructions: e.target.value })}
+              rows={3}
+              placeholder="How to store this product..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="extra_notes">Extra Notes / Warnings</Label>
+            <Textarea
+              id="extra_notes"
+              value={formData.extra_notes}
+              onChange={(e) => setFormData({ ...formData, extra_notes: e.target.value })}
+              rows={3}
+              placeholder="Any important notes or warnings..."
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              id="is_active"
+              checked={formData.is_active}
+              onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+            />
+            <Label htmlFor="is_active">Active (visible to customers)</Label>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <Button type="submit" className="w-full" disabled={loading || uploading}>
         {loading ? 'Saving...' : product ? 'Update Product' : 'Create Product'}
