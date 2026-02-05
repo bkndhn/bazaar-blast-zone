@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { MapPin, Plus, Trash2, Edit2, Check, Navigation, ExternalLink } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { useAddresses, useAddAddress, useUpdateAddress, useDeleteAddress, Addres
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 export default function Addresses() {
   const { user } = useAuth();
@@ -132,6 +133,18 @@ function AddressCard({ address, onEdit }: { address: Address; onEdit: () => void
           <p className="text-sm">
             {address.city}, {address.state} - {address.postal_code}
           </p>
+          {(address as any).location_link && (
+            <a 
+              href={(address as any).location_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              <MapPin className="h-3 w-3" />
+              View on Map
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
         </div>
       </div>
 
@@ -173,6 +186,7 @@ function AddressCard({ address, onEdit }: { address: Address; onEdit: () => void
 function AddressForm({ address, onSuccess }: { address?: Address | null; onSuccess: () => void }) {
   const addAddress = useAddAddress();
   const updateAddress = useUpdateAddress();
+  const [phoneError, setPhoneError] = useState('');
   
   const [formData, setFormData] = useState({
     full_name: address?.full_name || '',
@@ -184,10 +198,46 @@ function AddressForm({ address, onSuccess }: { address?: Address | null; onSucce
     postal_code: address?.postal_code || '',
     country: address?.country || 'India',
     is_default: address?.is_default || false,
+    location_link: (address as any)?.location_link || '',
   });
+
+  const validatePhone = (phone: string) => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length !== 10) {
+      setPhoneError('Phone number must be exactly 10 digits');
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
+
+  const handlePhoneChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 10);
+    setFormData({ ...formData, phone: digits });
+    if (digits.length > 0) {
+      validatePhone(digits);
+    } else {
+      setPhoneError('');
+    }
+  };
+
+  const openLocationPicker = () => {
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${formData.address_line1}, ${formData.city}, ${formData.state}, ${formData.postal_code}`
+    )}`;
+    window.open(mapsUrl, '_blank');
+    toast({
+      title: 'Copy Location Link',
+      description: 'Find your location in Google Maps, click Share and paste the link below.',
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validatePhone(formData.phone)) {
+      return;
+    }
     
     if (address) {
       await updateAddress.mutateAsync({ id: address.id, ...formData });
@@ -210,13 +260,21 @@ function AddressForm({ address, onSuccess }: { address?: Address | null; onSucce
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
+          <Label htmlFor="phone">Phone (10 digits)</Label>
           <Input
             id="phone"
+            type="tel"
+            inputMode="numeric"
+            maxLength={10}
             value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            placeholder="9876543210"
+            className={phoneError ? 'border-destructive' : ''}
             required
           />
+          {phoneError && (
+            <p className="text-xs text-destructive">{phoneError}</p>
+          )}
         </div>
       </div>
 
@@ -283,6 +341,27 @@ function AddressForm({ address, onSuccess }: { address?: Address | null; onSucce
         </div>
       </div>
 
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label>Location Link (Optional)</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            onClick={openLocationPicker}
+          >
+            <Navigation className="h-3 w-3" />
+            Open Maps
+          </Button>
+        </div>
+        <Input
+          value={formData.location_link}
+          onChange={(e) => setFormData({ ...formData, location_link: e.target.value })}
+          placeholder="Paste Google Maps share link here"
+        />
+      </div>
+
       <div className="flex items-center gap-2">
         <input
           type="checkbox"
@@ -299,7 +378,7 @@ function AddressForm({ address, onSuccess }: { address?: Address | null; onSucce
       <Button 
         type="submit" 
         className="w-full"
-        disabled={addAddress.isPending || updateAddress.isPending}
+        disabled={addAddress.isPending || updateAddress.isPending || (!!phoneError && formData.phone.length > 0)}
       >
         {address ? 'Update Address' : 'Add Address'}
       </Button>

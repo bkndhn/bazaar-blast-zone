@@ -8,7 +8,10 @@ import {
   LogOut,
   ChevronLeft,
   Store,
-  Users
+  Users,
+  FolderOpen,
+  Image,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -18,8 +21,11 @@ import { cn } from '@/lib/utils';
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
   { icon: Package, label: 'Products', path: '/admin/products' },
+  { icon: FolderOpen, label: 'Categories', path: '/admin/categories' },
+  { icon: Image, label: 'Banners', path: '/admin/banners' },
   { icon: ShoppingCart, label: 'Orders', path: '/admin/orders' },
   { icon: Users, label: 'CRM', path: '/admin/crm' },
+  { icon: MessageCircle, label: 'Support', path: '/admin/support' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 

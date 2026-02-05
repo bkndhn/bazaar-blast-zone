@@ -26,6 +26,7 @@ import Payments from "./pages/Payments";
 import Support from "./pages/Support";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import SupportTickets from "./pages/SupportTickets";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -33,6 +34,9 @@ import AdminProducts from "./pages/admin/Products";
 import AdminOrders from "./pages/admin/Orders";
 import AdminSettings from "./pages/admin/Settings";
 import AdminCRM from "./pages/admin/CRM";
+import AdminCategories from "./pages/admin/Categories";
+import AdminBanners from "./pages/admin/Banners";
+import AdminSupport from "./pages/admin/SupportTickets";
 
 // Super Admin Pages
 import SuperAdminDashboard from "./pages/super-admin/Dashboard";
@@ -71,13 +75,17 @@ const App = () => (
               <Route path="/payments" element={<Payments />} />
               <Route path="/support" element={<Support />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/tickets" element={<SupportTickets />} />
 
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/categories" element={<AdminCategories />} />
+              <Route path="/admin/banners" element={<AdminBanners />} />
               <Route path="/admin/orders" element={<AdminOrders />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
               <Route path="/admin/crm" element={<AdminCRM />} />
+              <Route path="/admin/support" element={<AdminSupport />} />
 
               {/* Super Admin Routes */}
               <Route path="/super-admin" element={<SuperAdminDashboard />} />

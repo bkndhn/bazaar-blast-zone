@@ -24,6 +24,7 @@ export type Database = {
           full_name: string
           id: string
           is_default: boolean
+          location_link: string | null
           phone: string
           postal_code: string
           state: string
@@ -39,6 +40,7 @@ export type Database = {
           full_name: string
           id?: string
           is_default?: boolean
+          location_link?: string | null
           phone: string
           postal_code: string
           state: string
@@ -54,6 +56,7 @@ export type Database = {
           full_name?: string
           id?: string
           is_default?: boolean
+          location_link?: string | null
           phone?: string
           postal_code?: string
           state?: string
@@ -92,32 +95,50 @@ export type Database = {
       admin_settings: {
         Row: {
           admin_id: string
+          cod_enabled: boolean | null
           created_at: string
           delivery_outside_tamilnadu_days: number | null
           delivery_within_tamilnadu_days: number | null
           id: string
+          online_payment_enabled: boolean | null
+          payment_required_before_ship: boolean | null
+          phonepe_merchant_id: string | null
+          razorpay_key_id: string | null
           shipping_cost_outside_tamilnadu: number | null
           shipping_cost_within_tamilnadu: number | null
+          ticket_window_days: number | null
           updated_at: string
         }
         Insert: {
           admin_id: string
+          cod_enabled?: boolean | null
           created_at?: string
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
           id?: string
+          online_payment_enabled?: boolean | null
+          payment_required_before_ship?: boolean | null
+          phonepe_merchant_id?: string | null
+          razorpay_key_id?: string | null
           shipping_cost_outside_tamilnadu?: number | null
           shipping_cost_within_tamilnadu?: number | null
+          ticket_window_days?: number | null
           updated_at?: string
         }
         Update: {
           admin_id?: string
+          cod_enabled?: boolean | null
           created_at?: string
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
           id?: string
+          online_payment_enabled?: boolean | null
+          payment_required_before_ship?: boolean | null
+          phonepe_merchant_id?: string | null
+          razorpay_key_id?: string | null
           shipping_cost_outside_tamilnadu?: number | null
           shipping_cost_within_tamilnadu?: number | null
+          ticket_window_days?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -207,28 +228,40 @@ export type Database = {
       }
       categories: {
         Row: {
+          admin_id: string | null
           created_at: string
           id: string
           image_url: string | null
+          is_active: boolean | null
           name: string
           parent_id: string | null
+          show_on_home: boolean | null
           slug: string
+          sort_order: number | null
         }
         Insert: {
+          admin_id?: string | null
           created_at?: string
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           name: string
           parent_id?: string | null
+          show_on_home?: boolean | null
           slug: string
+          sort_order?: number | null
         }
         Update: {
+          admin_id?: string | null
           created_at?: string
           id?: string
           image_url?: string | null
+          is_active?: boolean | null
           name?: string
           parent_id?: string | null
+          show_on_home?: boolean | null
           slug?: string
+          sort_order?: number | null
         }
         Relationships: [
           {
@@ -239,6 +272,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      faqs: {
+        Row: {
+          admin_id: string
+          answer: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          question: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          answer: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          question: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          answer?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          question?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       order_feedback: {
         Row: {
@@ -490,14 +556,22 @@ export type Database = {
           compare_at_price: number | null
           created_at: string
           description: string | null
+          extra_notes: string | null
           id: string
           is_active: boolean
+          max_quantity: number | null
+          min_quantity: number | null
           name: string
           price: number
           sku: string | null
           stock_quantity: number
+          storage_instructions: string | null
           store_id: string
+          unit_label: string | null
+          unit_type: string | null
+          unit_value: number | null
           updated_at: string
+          usage_instructions: string | null
         }
         Insert: {
           admin_id: string
@@ -505,14 +579,22 @@ export type Database = {
           compare_at_price?: number | null
           created_at?: string
           description?: string | null
+          extra_notes?: string | null
           id?: string
           is_active?: boolean
+          max_quantity?: number | null
+          min_quantity?: number | null
           name: string
           price: number
           sku?: string | null
           stock_quantity?: number
+          storage_instructions?: string | null
           store_id: string
+          unit_label?: string | null
+          unit_type?: string | null
+          unit_value?: number | null
           updated_at?: string
+          usage_instructions?: string | null
         }
         Update: {
           admin_id?: string
@@ -520,14 +602,22 @@ export type Database = {
           compare_at_price?: number | null
           created_at?: string
           description?: string | null
+          extra_notes?: string | null
           id?: string
           is_active?: boolean
+          max_quantity?: number | null
+          min_quantity?: number | null
           name?: string
           price?: number
           sku?: string | null
           stock_quantity?: number
+          storage_instructions?: string | null
           store_id?: string
+          unit_label?: string | null
+          unit_type?: string | null
+          unit_value?: number | null
           updated_at?: string
+          usage_instructions?: string | null
         }
         Relationships: [
           {
@@ -582,6 +672,39 @@ export type Database = {
         }
         Relationships: []
       }
+      store_policies: {
+        Row: {
+          admin_id: string
+          content: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          content: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       stores: {
         Row: {
           admin_id: string
@@ -617,6 +740,117 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      support_tickets: {
+        Row: {
+          admin_id: string
+          created_at: string
+          description: string
+          id: string
+          order_id: string | null
+          status: string
+          subject: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          description: string
+          id?: string
+          order_id?: string | null
+          status?: string
+          subject: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          order_id?: string | null
+          status?: string
+          subject?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_images_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_replies: {
+        Row: {
+          created_at: string
+          id: string
+          is_admin_reply: boolean | null
+          message: string
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_admin_reply?: boolean | null
+          message: string
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_admin_reply?: boolean | null
+          message?: string
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_replies_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

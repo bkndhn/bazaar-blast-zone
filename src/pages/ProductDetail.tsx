@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2, ShoppingCart, Star, Minus, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, ShoppingCart, Star, Minus, Plus, ChevronLeft, ChevronRight, Eye, Zap, Package, Thermometer, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProduct } from '@/hooks/useProducts';
-import { useAddToCart } from '@/hooks/useCart';
+import { useAddToCart, useCart } from '@/hooks/useCart';
 import { useToggleWishlist, useIsInWishlist } from '@/hooks/useWishlist';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -15,11 +16,13 @@ export default function ProductDetail() {
   const { data: product, isLoading } = useProduct(id!);
   const { user } = useAuth();
   const addToCart = useAddToCart();
+  const { data: cart } = useCart();
   const toggleWishlist = useToggleWishlist();
   const isInWishlist = useIsInWishlist(id!);
   
   const [quantity, setQuantity] = useState(1);
   const [currentImage, setCurrentImage] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -68,6 +71,81 @@ export default function ProductDetail() {
     setCurrentImage((prev) => (prev - 1 + images.length) % images.length);
   };
 
+  const isInCart = cart?.some(item => item.product_id === product.id);
+  const extendedProduct = product as any;
+  const unitLabel = extendedProduct.unit_label || 'pc';
+  const minQty = extendedProduct.min_quantity || 1;
+  const maxQty = Math.min(extendedProduct.max_quantity || 10, product.stock_quantity);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: product.name,
+      text: `Check out ${product.name} at ₹${product.price}`,
+      url: window.location.href,
+    };
+    
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({ title: 'Link copied to clipboard!' });
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+    }
+  };
+
+  const handleAddToCart = () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to add items to cart',
+      });
+      navigate('/auth', { state: { returnTo: `/product/${product.id}` } });
+      return;
+    }
+    addToCart.mutate({ productId: product.id, quantity });
+  };
+
+  const handleBuyNow = () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to continue',
+      });
+      navigate('/auth', { state: { returnTo: `/product/${product.id}`, buyNow: true } });
+      return;
+    }
+    // Add to cart first then go to checkout
+    addToCart.mutate(
+      { productId: product.id, quantity },
+      {
+        onSuccess: () => {
+          navigate('/checkout');
+        },
+      }
+    );
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStart - touchEnd;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        nextImage();
+      } else {
+        prevImage();
+      }
+    }
+    setTouchStart(null);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
@@ -76,28 +154,37 @@ export default function ProductDetail() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={handleShare}>
             <Share2 className="h-5 w-5" />
           </Button>
-          {user && (
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className={cn(isInWishlist && 'text-sale')}
-              onClick={() => toggleWishlist.mutate(product.id)}
-            >
-              <Heart className={cn('h-5 w-5', isInWishlist && 'fill-current')} />
-            </Button>
-          )}
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className={cn(isInWishlist && 'text-sale')}
+            onClick={() => {
+              if (user) {
+                toggleWishlist.mutate(product.id);
+              } else {
+                toast({ title: 'Sign in required', description: 'Please sign in to save items' });
+                navigate('/auth');
+              }
+            }}
+          >
+            <Heart className={cn('h-5 w-5', isInWishlist && 'fill-current')} />
+          </Button>
         </div>
       </header>
 
       {/* Image Gallery */}
-      <div className="relative aspect-square overflow-hidden bg-muted">
+      <div 
+        className="relative aspect-square overflow-hidden bg-muted"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <img
           src={currentImageUrl}
           alt={product.name}
-          className="h-full w-full object-contain"
+          className="h-full w-full object-contain transition-opacity"
         />
         
         {images.length > 1 && (
@@ -184,37 +271,44 @@ export default function ProductDetail() {
         {/* Stock Status */}
         <div className="mt-3">
           {product.stock_quantity > 0 ? (
-            <span className="text-sm text-success">In Stock</span>
+            <span className="text-sm text-success">
+              In Stock ({product.stock_quantity} available)
+            </span>
           ) : (
             <span className="text-sm text-destructive">Out of Stock</span>
           )}
         </div>
 
         {/* Quantity Selector */}
-        <div className="mt-4 flex items-center gap-4">
-          <span className="text-sm font-medium">Quantity:</span>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              disabled={quantity <= 1}
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <span className="w-8 text-center font-medium">{quantity}</span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setQuantity(quantity + 1)}
-              disabled={quantity >= product.stock_quantity}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+        {product.stock_quantity > 0 && (
+          <div className="mt-4 flex items-center gap-4">
+            <span className="text-sm font-medium">Quantity ({unitLabel}):</span>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setQuantity(Math.max(minQty, quantity - 1))}
+                disabled={quantity <= minQty}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="w-8 text-center font-medium">{quantity}</span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
+                disabled={quantity >= maxQty}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <span className="text-sm text-muted-foreground">
+              Total: ₹{(product.price * quantity).toLocaleString('en-IN')}
+            </span>
           </div>
-        </div>
+        )}
 
         {/* Description */}
         {product.description && (
@@ -222,8 +316,47 @@ export default function ProductDetail() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Description
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-foreground/90">
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
               {product.description}
+            </p>
+          </div>
+        )}
+
+        {/* Usage Instructions */}
+        {extendedProduct.usage_instructions && (
+          <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <Package className="h-4 w-4" />
+              Usage Instructions
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+              {extendedProduct.usage_instructions}
+            </p>
+          </div>
+        )}
+
+        {/* Storage Instructions */}
+        {extendedProduct.storage_instructions && (
+          <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <Thermometer className="h-4 w-4" />
+              Storage Instructions
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+              {extendedProduct.storage_instructions}
+            </p>
+          </div>
+        )}
+
+        {/* Extra Notes */}
+        {extendedProduct.extra_notes && (
+          <div className="mt-4 rounded-lg border border-warning/50 bg-warning/10 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-warning">
+              <AlertTriangle className="h-4 w-4" />
+              Important Notes
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+              {extendedProduct.extra_notes}
             </p>
           </div>
         )}
@@ -231,19 +364,32 @@ export default function ProductDetail() {
 
       {/* Fixed Bottom Actions */}
       <div className="fixed bottom-0 left-0 right-0 flex gap-3 border-t border-border bg-card p-4">
-        <Button
-          variant="outline"
-          className="flex-1 gap-2"
-          disabled={product.stock_quantity === 0}
-          onClick={() => addToCart.mutate({ productId: product.id, quantity })}
-        >
-          <ShoppingCart className="h-4 w-4" />
-          Add to Cart
-        </Button>
+        {isInCart ? (
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={() => navigate('/cart')}
+          >
+            <Eye className="h-4 w-4" />
+            View Cart
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            disabled={product.stock_quantity === 0 || addToCart.isPending}
+            onClick={handleAddToCart}
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Add to Cart
+          </Button>
+        )}
         <Button 
           className="flex-1"
-          disabled={product.stock_quantity === 0}
+          disabled={product.stock_quantity === 0 || addToCart.isPending}
+          onClick={handleBuyNow}
         >
+          <Zap className="h-4 w-4 mr-1" />
           Buy Now
         </Button>
       </div>
