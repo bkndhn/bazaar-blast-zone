@@ -1,10 +1,11 @@
-import { Heart, Star, ShoppingCart, Eye } from 'lucide-react';
+import { Heart, Star, ShoppingCart, Eye, Share2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToggleWishlist, useIsInWishlist } from '@/hooks/useWishlist';
 import { useAddToCart, useCart } from '@/hooks/useCart';
+import { useProductRating } from '@/hooks/useProductReviews';
 import { Product } from '@/hooks/useProducts';
 import { toast } from '@/hooks/use-toast';
 
@@ -20,6 +21,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
   const isInWishlist = useIsInWishlist(product.id);
   const addToCart = useAddToCart();
   const { data: cart } = useCart();
+  const { data: rating } = useProductRating(product.id);
   
   const primaryImage = product.images?.find(img => img.is_primary)?.image_url 
     || product.images?.[0]?.image_url
@@ -31,6 +33,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
   const isInCart = cart?.some(item => item.product_id === product.id);
   const isOutOfStock = product.stock_quantity === 0;
+  const extendedProduct = product as any;
 
   const handleWishlistClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -61,7 +64,37 @@ export function ProductCard({ product, className }: ProductCardProps) {
       navigate('/cart');
       return;
     }
-    addToCart.mutate({ productId: product.id, quantity: 1 });
+    addToCart.mutate(
+      { productId: product.id, quantity: 1 },
+      {
+        onSuccess: () => {
+          toast({ title: 'Added to cart!' });
+        },
+      }
+    );
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const productUrl = `${window.location.origin}/product/${product.id}`;
+    const shareText = `Check out ${product.name} at ₹${product.price.toLocaleString('en-IN')}`;
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: product.name,
+          text: shareText,
+          url: productUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(`${shareText} ${productUrl}`);
+        toast({ title: 'Link copied to clipboard!' });
+      }
+    } catch (err) {
+      // User cancelled share
+    }
   };
 
   return (
@@ -81,18 +114,28 @@ export function ProductCard({ product, className }: ProductCardProps) {
           loading="lazy"
         />
         
-        {/* Wishlist Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            'absolute right-2 top-2 h-8 w-8 rounded-full bg-card/80 backdrop-blur-sm transition-colors',
-            isInWishlist && 'text-sale'
-          )}
-          onClick={handleWishlistClick}
-        >
-          <Heart className={cn('h-4 w-4', isInWishlist && 'fill-current')} />
-        </Button>
+        {/* Top Actions */}
+        <div className="absolute right-2 top-2 flex flex-col gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'h-8 w-8 rounded-full bg-card/80 backdrop-blur-sm transition-colors',
+              isInWishlist && 'text-sale'
+            )}
+            onClick={handleWishlistClick}
+          >
+            <Heart className={cn('h-4 w-4', isInWishlist && 'fill-current')} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full bg-card/80 backdrop-blur-sm"
+            onClick={handleShare}
+          >
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </div>
 
         {/* Discount Badge */}
         {discount > 0 && (
@@ -125,13 +168,23 @@ export function ProductCard({ product, className }: ProductCardProps) {
           {product.name}
         </h3>
 
-        {/* Rating */}
+        {/* Rating - Dynamic from reviews */}
         <div className="mt-1 flex items-center gap-1">
-          <div className="flex items-center gap-0.5 rounded bg-success px-1.5 py-0.5">
-            <span className="text-xs font-semibold text-success-foreground">4.2</span>
-            <Star className="h-3 w-3 fill-success-foreground text-success-foreground" />
-          </div>
-          <span className="text-xs text-muted-foreground">(1.2k)</span>
+          {rating && rating.count > 0 ? (
+            <>
+              <div className="flex items-center gap-0.5 rounded bg-success px-1.5 py-0.5">
+                <span className="text-xs font-semibold text-success-foreground">
+                  {rating.average}
+                </span>
+                <Star className="h-3 w-3 fill-success-foreground text-success-foreground" />
+              </div>
+              <span className="text-xs text-muted-foreground">
+                ({rating.count > 1000 ? `${(rating.count / 1000).toFixed(1)}k` : rating.count})
+              </span>
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">No ratings yet</span>
+          )}
           {!isOutOfStock && (
             <span className="ml-auto text-xs text-success">In Stock</span>
           )}
@@ -141,9 +194,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
         <div className="mt-2 flex items-baseline gap-2">
           <span className="text-base font-bold text-foreground">
             ₹{product.price.toLocaleString('en-IN')}
-            {(product as any).unit_label && (
+            {extendedProduct.unit_label && (
               <span className="text-xs font-normal text-muted-foreground">
-                /{(product as any).unit_label}
+                /{extendedProduct.unit_label}
               </span>
             )}
           </span>

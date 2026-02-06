@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2, ShoppingCart, Star, Minus, Plus, ChevronLeft, ChevronRight, Eye, Zap, Package, Thermometer, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Eye, Zap, Package, Thermometer, AlertTriangle, Expand } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProduct } from '@/hooks/useProducts';
 import { useAddToCart, useCart } from '@/hooks/useCart';
@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { ImageZoomModal } from '@/components/product/ImageZoomModal';
+import { ProductReviewSection } from '@/components/product/ProductReviewSection';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +25,7 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [currentImage, setCurrentImage] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -80,7 +83,7 @@ export default function ProductDetail() {
   const handleShare = async () => {
     const shareData = {
       title: product.name,
-      text: `Check out ${product.name} at ₹${product.price}`,
+      text: `Check out ${product.name} at ₹${product.price.toLocaleString('en-IN')}`,
       url: window.location.href,
     };
     
@@ -88,7 +91,7 @@ export default function ProductDetail() {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
         toast({ title: 'Link copied to clipboard!' });
       }
     } catch (err) {
@@ -184,8 +187,19 @@ export default function ProductDetail() {
         <img
           src={currentImageUrl}
           alt={product.name}
-          className="h-full w-full object-contain transition-opacity"
+          className="h-full w-full object-contain transition-opacity cursor-zoom-in"
+          onClick={() => setZoomOpen(true)}
         />
+        
+        {/* Zoom button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-2 top-2 h-9 w-9 rounded-full bg-card/80 backdrop-blur-sm"
+          onClick={() => setZoomOpen(true)}
+        >
+          <Expand className="h-4 w-4" />
+        </Button>
         
         {images.length > 1 && (
           <>
@@ -230,6 +244,14 @@ export default function ProductDetail() {
         )}
       </div>
 
+      {/* Image Zoom Modal */}
+      <ImageZoomModal
+        open={zoomOpen}
+        onOpenChange={setZoomOpen}
+        imageUrl={currentImageUrl}
+        alt={product.name}
+      />
+
       {/* Product Info */}
       <div className="p-4">
         {/* Store Name */}
@@ -242,14 +264,11 @@ export default function ProductDetail() {
         {/* Product Name */}
         <h1 className="mt-1 text-xl font-semibold">{product.name}</h1>
 
-        {/* Rating */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded bg-success px-2 py-0.5">
-            <span className="text-sm font-semibold text-success-foreground">4.2</span>
-            <Star className="h-3.5 w-3.5 fill-success-foreground text-success-foreground" />
-          </div>
-          <span className="text-sm text-muted-foreground">1,234 Ratings</span>
-        </div>
+        {/* Rating Section - Now dynamic with reviews */}
+        <ProductReviewSection 
+          productId={product.id} 
+          adminId={product.admin_id}
+        />
 
         {/* Price */}
         <div className="mt-4 flex items-baseline gap-2">

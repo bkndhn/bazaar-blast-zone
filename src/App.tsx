@@ -37,6 +37,7 @@ import AdminCRM from "./pages/admin/CRM";
 import AdminCategories from "./pages/admin/Categories";
 import AdminBanners from "./pages/admin/Banners";
 import AdminSupport from "./pages/admin/SupportTickets";
+import AdminSupportSettings from "./pages/admin/SupportSettings";
 
 // Super Admin Pages
 import SuperAdminDashboard from "./pages/super-admin/Dashboard";
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="/admin/settings" element={<AdminSettings />} />
               <Route path="/admin/crm" element={<AdminCRM />} />
               <Route path="/admin/support" element={<AdminSupport />} />
+              <Route path="/admin/support-settings" element={<AdminSupportSettings />} />
 
               {/* Super Admin Routes */}
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
