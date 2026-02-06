@@ -143,6 +143,51 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_support_settings: {
+        Row: {
+          admin_id: string
+          chat_enabled: boolean | null
+          chat_url: string | null
+          created_at: string | null
+          email_address: string | null
+          email_enabled: boolean | null
+          id: string
+          phone_enabled: boolean | null
+          phone_number: string | null
+          updated_at: string | null
+          whatsapp_enabled: boolean | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          admin_id: string
+          chat_enabled?: boolean | null
+          chat_url?: string | null
+          created_at?: string | null
+          email_address?: string | null
+          email_enabled?: boolean | null
+          id?: string
+          phone_enabled?: boolean | null
+          phone_number?: string | null
+          updated_at?: string | null
+          whatsapp_enabled?: boolean | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          admin_id?: string
+          chat_enabled?: boolean | null
+          chat_url?: string | null
+          created_at?: string | null
+          email_address?: string | null
+          email_enabled?: boolean | null
+          id?: string
+          phone_enabled?: boolean | null
+          phone_number?: string | null
+          updated_at?: string | null
+          whatsapp_enabled?: boolean | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
       banner_ads: {
         Row: {
           admin_id: string
@@ -542,6 +587,60 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_reviews: {
+        Row: {
+          admin_id: string
+          created_at: string | null
+          id: string
+          is_verified_purchase: boolean | null
+          order_id: string | null
+          product_id: string
+          rating: number
+          review_text: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string | null
+          id?: string
+          is_verified_purchase?: boolean | null
+          order_id?: string | null
+          product_id: string
+          rating: number
+          review_text?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string | null
+          id?: string
+          is_verified_purchase?: boolean | null
+          order_id?: string | null
+          product_id?: string
+          rating?: number
+          review_text?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reviews_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"

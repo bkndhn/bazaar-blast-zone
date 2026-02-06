@@ -11,7 +11,8 @@ import {
   Users,
   FolderOpen,
   Image,
-  MessageCircle
+  MessageCircle,
+  HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -25,7 +26,8 @@ const adminNavItems = [
   { icon: Image, label: 'Banners', path: '/admin/banners' },
   { icon: ShoppingCart, label: 'Orders', path: '/admin/orders' },
   { icon: Users, label: 'CRM', path: '/admin/crm' },
-  { icon: MessageCircle, label: 'Support', path: '/admin/support' },
+  { icon: MessageCircle, label: 'Tickets', path: '/admin/support' },
+  { icon: HelpCircle, label: 'Help/FAQ', path: '/admin/support-settings' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
