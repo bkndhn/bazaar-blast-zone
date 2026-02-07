@@ -81,17 +81,19 @@ export default function ProductDetail() {
   const maxQty = Math.min(extendedProduct.max_quantity || 10, product.stock_quantity);
 
   const handleShare = async () => {
-    const shareData = {
-      title: product.name,
-      text: `Check out ${product.name} at ₹${product.price.toLocaleString('en-IN')}`,
-      url: window.location.href,
-    };
+    const publishedOrigin = 'https://bazaar-blast-zone.lovable.app';
+    const productUrl = `${publishedOrigin}/product/${product.id}`;
+    const shareText = `Check out ${product.name} at ₹${product.price.toLocaleString('en-IN')}`;
     
     try {
       if (navigator.share) {
-        await navigator.share(shareData);
+        await navigator.share({
+          title: product.name,
+          text: shareText,
+          url: productUrl,
+        });
       } else {
-        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+        await navigator.clipboard.writeText(`${shareText} ${productUrl}`);
         toast({ title: 'Link copied to clipboard!' });
       }
     } catch (err) {
