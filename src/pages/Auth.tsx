@@ -17,12 +17,18 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || cooldown) return;
     setLoading(true);
+
+    // Prevent rapid repeated clicks
+    setCooldown(true);
+    setTimeout(() => setCooldown(false), 3000);
 
     try {
       if (mode === 'forgot-password') {
@@ -30,26 +36,23 @@ export default function Auth() {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) {
-          toast({
-            title: 'Error',
-            description: error.message,
-            variant: 'destructive',
-          });
+          if (error.message?.includes('rate') || error.status === 429) {
+            toast({ title: 'Too many requests', description: 'Please wait a moment before trying again.', variant: 'destructive' });
+          } else {
+            toast({ title: 'Error', description: error.message, variant: 'destructive' });
+          }
         } else {
-          toast({
-            title: 'Email sent!',
-            description: 'Check your email for a password reset link.',
-          });
+          toast({ title: 'Email sent!', description: 'Check your email for a password reset link.' });
           setMode('login');
         }
       } else if (mode === 'login') {
         const { error } = await signIn(email, password);
         if (error) {
-          toast({
-            title: 'Login failed',
-            description: error.message,
-            variant: 'destructive',
-          });
+          if (error.message?.includes('rate') || (error as any).status === 429) {
+            toast({ title: 'Too many attempts', description: 'Please wait before trying again.', variant: 'destructive' });
+          } else {
+            toast({ title: 'Login failed', description: error.message, variant: 'destructive' });
+          }
         } else {
           toast({ title: 'Welcome back!' });
           navigate('/');
@@ -57,16 +60,13 @@ export default function Auth() {
       } else {
         const { error } = await signUp(email, password, fullName);
         if (error) {
-          toast({
-            title: 'Signup failed',
-            description: error.message,
-            variant: 'destructive',
-          });
+          if (error.message?.includes('rate') || (error as any).status === 429) {
+            toast({ title: 'Too many attempts', description: 'Please wait a minute before signing up again.', variant: 'destructive' });
+          } else {
+            toast({ title: 'Signup failed', description: error.message, variant: 'destructive' });
+          }
         } else {
-          toast({
-            title: 'Account created!',
-            description: 'Please check your email to verify your account.',
-          });
+          toast({ title: 'Account created!', description: 'Please check your email to verify your account.' });
         }
       }
     } finally {
@@ -175,7 +175,7 @@ export default function Auth() {
             </CardContent>
 
             <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || cooldown}>
                 {loading 
                   ? 'Please wait...' 
                   : mode === 'login' 

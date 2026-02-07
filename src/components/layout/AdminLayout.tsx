@@ -12,10 +12,12 @@ import {
   FolderOpen,
   Image,
   MessageCircle,
-  HelpCircle
+  HelpCircle,
+  Menu
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +33,10 @@ const adminNavItems = [
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
+// Show only first 5 in bottom nav on mobile, rest in sidebar
+const mobileBottomNavItems = adminNavItems.slice(0, 5);
+const mobileMoreItems = adminNavItems.slice(5);
+
 interface AdminLayoutProps {
   children: ReactNode;
   title: string;
@@ -41,6 +47,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
   const navigate = useNavigate();
   const { signOut, isAdmin, isSuperAdmin } = useAuth();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Redirect if not admin
   if (!isAdmin && !isSuperAdmin) {
@@ -120,9 +127,9 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
         </main>
       </div>
 
-      {/* Bottom Nav - Mobile */}
+      {/* Bottom Nav - Mobile (5 items + More) */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-border bg-card md:hidden">
-        {adminNavItems.map((item) => {
+        {mobileBottomNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           
@@ -131,7 +138,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex flex-col items-center gap-1 px-3 py-2',
+                'flex flex-col items-center gap-1 px-2 py-2',
                 isActive ? 'text-primary' : 'text-muted-foreground'
               )}
             >
@@ -140,6 +147,42 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             </Link>
           );
         })}
+        {/* More button with sheet */}
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetTrigger asChild>
+            <button className={cn(
+              'flex flex-col items-center gap-1 px-2 py-2',
+              mobileMoreItems.some(i => location.pathname === i.path) ? 'text-primary' : 'text-muted-foreground'
+            )}>
+              <Menu className="h-5 w-5" />
+              <span className="text-[10px] font-medium">More</span>
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="rounded-t-2xl pb-safe">
+            <nav className="flex flex-col gap-1 pt-2">
+              {mobileMoreItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground hover:bg-muted'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </SheetContent>
+        </Sheet>
       </nav>
 
       <ConfirmDialog
