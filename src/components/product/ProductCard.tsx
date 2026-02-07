@@ -78,7 +78,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
-    const productUrl = `${window.location.origin}/product/${product.id}`;
+    // Use published URL for sharing
+    const publishedOrigin = 'https://bazaar-blast-zone.lovable.app';
+    const productUrl = `${publishedOrigin}/product/${product.id}`;
     const shareText = `Check out ${product.name} at ₹${product.price.toLocaleString('en-IN')}`;
     
     try {

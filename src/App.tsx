@@ -14,7 +14,7 @@ import Cart from "./pages/Cart";
 import Wishlist from "./pages/Wishlist";
 import Account from "./pages/Account";
 import ProfileEdit from "./pages/ProfileEdit";
-import Search from "./pages/Search";
+// Search is now integrated into the home page
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Category from "./pages/Category";
@@ -65,7 +65,7 @@ const App = () => (
               <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/account" element={<Account />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
-              <Route path="/search" element={<Search />} />
+              {/* Search integrated into home page */}
               <Route path="/products" element={<Products />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/category/:slug" element={<Category />} />

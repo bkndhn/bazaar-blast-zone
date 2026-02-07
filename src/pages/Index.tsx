@@ -1,27 +1,25 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { BannerCarousel } from '@/components/home/BannerCarousel';
 import { CategoryScroll } from '@/components/home/CategoryScroll';
-import { SectionHeader } from '@/components/home/SectionHeader';
-import { ProductGrid } from '@/components/product/ProductGrid';
+import { HomeSearch } from '@/components/home/HomeSearch';
 import { useProducts } from '@/hooks/useProducts';
+import { useAllCategories } from '@/hooks/useCategories';
 
 const Index = () => {
-  const { data: products, isLoading } = useProducts({ limit: 10 });
+  const { data: products, isLoading } = useProducts();
+  const { data: categories } = useAllCategories();
 
   return (
-    <MainLayout>
+    <MainLayout showHeader={false}>
       {/* Banner Carousel */}
       <BannerCarousel />
 
       {/* Categories */}
       <CategoryScroll />
 
-      {/* Featured Products */}
+      {/* Search + All Products */}
       <section className="pb-6">
-        <SectionHeader title="Featured Products" href="/products" />
-        <div className="px-4">
-          <ProductGrid products={products} loading={isLoading} />
-        </div>
+        <HomeSearch products={products} categories={categories} isLoading={isLoading} />
       </section>
     </MainLayout>
   );
