@@ -192,7 +192,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1">
+        <main className="flex-1 overflow-x-hidden">
           {/* Page Header */}
           <div className="border-b border-border bg-card px-4 py-4 md:px-6">
             <h1 className="text-xl font-semibold">{title}</h1>

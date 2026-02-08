@@ -28,6 +28,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import SupportTickets from "./pages/SupportTickets";
 import StoreFront from "./pages/StoreFront";
+import Terms from "./pages/Terms";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -77,6 +78,7 @@ const App = () => (
               <Route path="/support" element={<Support />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/tickets" element={<SupportTickets />} />
+              <Route path="/terms" element={<Terms />} />
 
               {/* Store-specific routes: /s/store-slug */}
               <Route path="/s/:storeSlug" element={<StoreProvider><StoreFront /></StoreProvider>} />
