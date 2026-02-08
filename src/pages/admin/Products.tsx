@@ -258,69 +258,62 @@ export default function AdminProducts() {
             return (
               <div
                 key={product.id}
-                className="flex gap-4 rounded-lg border border-border bg-card p-4"
+                className="flex gap-3 rounded-lg border border-border bg-card p-3 overflow-hidden"
               >
                 <img
                   src={primaryImage}
                   alt={product.name}
-                  className="h-16 w-16 rounded-md object-cover"
+                  className="h-14 w-14 flex-shrink-0 rounded-md object-cover"
                 />
-                <div className="flex-1">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-medium">{product.name}</h3>
-                      <p className="text-sm text-muted-foreground">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium truncate">{product.name}</h3>
+                      <p className="text-xs text-muted-foreground truncate">
                         ₹{product.price.toLocaleString('en-IN')} • Stock: {product.stock_quantity}
-                        {product.images?.length > 1 && ` • ${product.images.length} images`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className={`rounded px-2 py-0.5 text-xs ${product.stock_quantity === 0
-                        ? 'bg-destructive/20 text-destructive'
-                        : product.is_active
-                          ? 'bg-success/20 text-success'
-                          : 'bg-muted text-muted-foreground'
-                        }`}>
-                        {product.stock_quantity === 0 ? 'Out of Stock' : product.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
+                    <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] ${product.stock_quantity === 0
+                      ? 'bg-destructive/20 text-destructive'
+                      : product.is_active
+                        ? 'bg-success/20 text-success'
+                        : 'bg-muted text-muted-foreground'
+                      }`}>
+                      {product.stock_quantity === 0 ? 'Out' : product.is_active ? 'Active' : 'Hidden'}
+                    </span>
                   </div>
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-2 flex flex-wrap gap-1">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-7 px-2 text-xs"
                       onClick={() => {
                         setEditProduct(product);
                         setIsOpen(true);
                       }}
                     >
-                      <Edit2 className="mr-1 h-3 w-3" />
-                      Edit
+                      <Edit2 className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-7 px-2 text-xs"
                       onClick={() => toggleVisibility.mutate({ id: product.id, isActive: product.is_active })}
                       disabled={toggleVisibility.isPending}
                     >
-                      {product.is_active ? (
-                        <><EyeOff className="mr-1 h-3 w-3" />Hide</>
-                      ) : (
-                        <><Eye className="mr-1 h-3 w-3" />Show</>
-                      )}
+                      {product.is_active ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:text-destructive"
+                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
                       onClick={() => setDeleteConfirm({
                         open: true,
                         productId: product.id,
                         productName: product.name
                       })}
                     >
-                      <Trash2 className="mr-1 h-3 w-3" />
-                      Delete
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
