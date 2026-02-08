@@ -18,6 +18,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStorePath } from '@/hooks/useStorePath';
 
 const menuItems = [
   { icon: Package, label: 'My Orders', href: '/orders' },
@@ -32,11 +33,12 @@ const menuItems = [
 export default function Account() {
   const { user, signOut, isSuperAdmin, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
+  const { getPath, isStoreRoute } = useStorePath();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate(getPath('/'));
   };
 
   if (loading) {
@@ -59,7 +61,7 @@ export default function Account() {
             Access your orders, wishlist, and more
           </p>
           <Button asChild className="mt-6">
-            <Link to="/auth">Sign In</Link>
+            <Link to={getPath('/auth')}>Sign In</Link>
           </Button>
         </div>
       </MainLayout>
@@ -81,7 +83,7 @@ export default function Account() {
             </p>
           </div>
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/profile/edit">
+            <Link to={getPath('/profile/edit')}>
               <ChevronRight className="h-5 w-5" />
             </Link>
           </Button>
@@ -120,7 +122,7 @@ export default function Account() {
             return (
               <Link
                 key={item.href}
-                to={item.href}
+                to={getPath(item.href)}
                 className="flex items-center gap-3 p-4 transition-colors hover:bg-muted/50"
               >
                 <Icon className="h-5 w-5 text-muted-foreground" />

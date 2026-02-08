@@ -90,6 +90,15 @@ const App = () => (
               <Route path="/s/:storeSlug/checkout" element={<StoreProvider><Checkout /></StoreProvider>} />
               <Route path="/s/:storeSlug/orders" element={<StoreProvider><Orders /></StoreProvider>} />
               <Route path="/s/:storeSlug/order/:id" element={<StoreProvider><OrderDetail /></StoreProvider>} />
+              <Route path="/s/:storeSlug/account" element={<StoreProvider><Account /></StoreProvider>} />
+              <Route path="/s/:storeSlug/profile/edit" element={<StoreProvider><ProfileEdit /></StoreProvider>} />
+              <Route path="/s/:storeSlug/addresses" element={<StoreProvider><Addresses /></StoreProvider>} />
+              <Route path="/s/:storeSlug/payments" element={<StoreProvider><Payments /></StoreProvider>} />
+              <Route path="/s/:storeSlug/support" element={<StoreProvider><Support /></StoreProvider>} />
+              <Route path="/s/:storeSlug/settings" element={<StoreProvider><Settings /></StoreProvider>} />
+              <Route path="/s/:storeSlug/tickets" element={<StoreProvider><SupportTickets /></StoreProvider>} />
+              <Route path="/s/:storeSlug/terms" element={<StoreProvider><Terms /></StoreProvider>} />
+              <Route path="/s/:storeSlug/auth" element={<StoreProvider><Auth /></StoreProvider>} />
 
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
