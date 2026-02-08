@@ -529,6 +529,7 @@ export default function AdminSettings() {
                 {saveDeliverySettings.isPending ? 'Saving...' : 'Save Payment Settings'}
               </Button>
             </form>
+          </CardContent>
         </Card>
 
         {/* Shipping Integration Settings */}
@@ -610,6 +611,7 @@ export default function AdminSettings() {
                 {saveDeliverySettings.isPending ? 'Saving...' : 'Save Shipping Settings'}
               </Button>
             </form>
+          </CardContent>
         </Card>
 
         {/* Terms and Conditions */}

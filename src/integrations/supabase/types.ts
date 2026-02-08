@@ -100,12 +100,18 @@ export type Database = {
           delivery_outside_tamilnadu_days: number | null
           delivery_within_tamilnadu_days: number | null
           id: string
+          is_payment_enabled: boolean | null
+          is_shipping_integration_enabled: boolean | null
           online_payment_enabled: boolean | null
           payment_required_before_ship: boolean | null
           phonepe_merchant_id: string | null
           razorpay_key_id: string | null
+          razorpay_key_secret: string | null
           shipping_cost_outside_tamilnadu: number | null
           shipping_cost_within_tamilnadu: number | null
+          shiprocket_email: string | null
+          shiprocket_password: string | null
+          terms_conditions: string | null
           ticket_window_days: number | null
           updated_at: string
         }
@@ -116,12 +122,18 @@ export type Database = {
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
           id?: string
+          is_payment_enabled?: boolean | null
+          is_shipping_integration_enabled?: boolean | null
           online_payment_enabled?: boolean | null
           payment_required_before_ship?: boolean | null
           phonepe_merchant_id?: string | null
           razorpay_key_id?: string | null
+          razorpay_key_secret?: string | null
           shipping_cost_outside_tamilnadu?: number | null
           shipping_cost_within_tamilnadu?: number | null
+          shiprocket_email?: string | null
+          shiprocket_password?: string | null
+          terms_conditions?: string | null
           ticket_window_days?: number | null
           updated_at?: string
         }
@@ -132,12 +144,18 @@ export type Database = {
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
           id?: string
+          is_payment_enabled?: boolean | null
+          is_shipping_integration_enabled?: boolean | null
           online_payment_enabled?: boolean | null
           payment_required_before_ship?: boolean | null
           phonepe_merchant_id?: string | null
           razorpay_key_id?: string | null
+          razorpay_key_secret?: string | null
           shipping_cost_outside_tamilnadu?: number | null
           shipping_cost_within_tamilnadu?: number | null
+          shiprocket_email?: string | null
+          shiprocket_password?: string | null
+          terms_conditions?: string | null
           ticket_window_days?: number | null
           updated_at?: string
         }
@@ -487,6 +505,9 @@ export type Database = {
           id: string
           notes: string | null
           order_number: string
+          payment_id: string | null
+          payment_method: string | null
+          payment_status: string | null
           shipped_at: string | null
           shipping_cost: number
           status: string
@@ -508,6 +529,9 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number: string
+          payment_id?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           shipped_at?: string | null
           shipping_cost?: number
           status?: string
@@ -529,6 +553,9 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: string
+          payment_id?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           shipped_at?: string | null
           shipping_cost?: number
           status?: string
