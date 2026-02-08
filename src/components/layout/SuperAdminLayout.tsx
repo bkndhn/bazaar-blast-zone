@@ -20,7 +20,6 @@ const superAdminNavItems = [
   { icon: Users, label: 'Admins', path: '/super-admin/admins' },
   { icon: UserCircle, label: 'Users', path: '/super-admin/users' },
   { icon: Store, label: 'Stores', path: '/super-admin/stores' },
-  { icon: FolderTree, label: 'Categories', path: '/super-admin/categories' },
 ];
 
 interface SuperAdminLayoutProps {

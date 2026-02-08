@@ -198,7 +198,10 @@ export default function SuperAdminAdmins() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {admin.profile?.full_name || admin.profile?.email || 'No email'}
+                    {admin.profile?.full_name || 'No name'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {admin.profile?.email || 'No email'}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {admin.profile?.phone || 'No phone'}

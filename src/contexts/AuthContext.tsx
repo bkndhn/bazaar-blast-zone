@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -55,6 +55,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Check if admin is paused - if so, force sign out
+  const checkAdminActive = useCallback(async (userId: string, userRoles: AppRole[]) => {
+    if (!userRoles.includes('admin')) return true;
+    
+    try {
+      const { data } = await supabase
+        .from('admin_accounts')
+        .select('status')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (data?.status === 'paused') {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setRoles([]);
+        return false;
+      }
+    } catch (err) {
+      console.error('Error checking admin status:', err);
+    }
+    return true;
+  }, []);
+
+  // Real-time listener for admin_accounts changes - force logout if paused
+  useEffect(() => {
+    if (!user || !roles.includes('admin')) return;
+
+    const channel = supabase
+      .channel('admin-status-watch')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'admin_accounts', filter: `user_id=eq.${user.id}` },
+        async (payload) => {
+          if ((payload.new as any).status === 'paused') {
+            await supabase.auth.signOut();
+            setUser(null);
+            setSession(null);
+            setRoles([]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, roles]);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -63,15 +112,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Update last login on sign in
           if (event === 'SIGNED_IN') {
             setTimeout(() => updateLastLogin(session.user.id), 0);
           }
           
-          // Defer role fetching to avoid blocking
           setTimeout(async () => {
             const userRoles = await fetchUserRoles(session.user.id);
             setRoles(userRoles);
+            // Check if admin is paused
+            await checkAdminActive(session.user.id, userRoles);
           }, 0);
         } else {
           setRoles([]);
@@ -89,13 +138,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userRoles = await fetchUserRoles(session.user.id);
         setRoles(userRoles);
+        await checkAdminActive(session.user.id, userRoles);
       }
       
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkAdminActive]);
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     const { error } = await supabase.auth.signUp({
