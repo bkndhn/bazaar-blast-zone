@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ShoppingBag, Mail, Lock, User, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,19 +8,39 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useStorePath } from '@/hooks/useStorePath';
 
 type AuthMode = 'login' | 'signup' | 'forgot-password';
 
 export default function Auth() {
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [searchParams] = useSearchParams();
+  const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, isAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
+  const { getPath, isStoreRoute } = useStorePath();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (isSuperAdmin) {
+        navigate('/super-admin');
+      } else if (isAdmin) {
+        navigate('/admin');
+      } else if (isStoreRoute) {
+        navigate(getPath('/account'));
+      } else {
+        navigate('/account');
+      }
+    }
+  }, [user, isAdmin, isSuperAdmin, navigate, isStoreRoute, getPath]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
