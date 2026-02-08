@@ -60,7 +60,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (!settingsError && settings) {
-          theme = settings.theme_color_hsl;
+          theme = (settings as any).theme_color_hsl;
         }
       } catch (err) {
         console.warn('Failed to fetch theme settings:', err);

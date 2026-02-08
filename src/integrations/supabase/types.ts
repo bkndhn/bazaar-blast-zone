@@ -112,6 +112,7 @@ export type Database = {
           shiprocket_email: string | null
           shiprocket_password: string | null
           terms_conditions: string | null
+          theme_color_hsl: string | null
           ticket_window_days: number | null
           updated_at: string
         }
@@ -134,6 +135,7 @@ export type Database = {
           shiprocket_email?: string | null
           shiprocket_password?: string | null
           terms_conditions?: string | null
+          theme_color_hsl?: string | null
           ticket_window_days?: number | null
           updated_at?: string
         }
@@ -156,6 +158,7 @@ export type Database = {
           shiprocket_email?: string | null
           shiprocket_password?: string | null
           terms_conditions?: string | null
+          theme_color_hsl?: string | null
           ticket_window_days?: number | null
           updated_at?: string
         }
