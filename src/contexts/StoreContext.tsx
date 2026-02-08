@@ -51,13 +51,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!store) return null;
 
       // Then get the admin settings for this store's admin
-      const { data: settings } = await supabase
-        .from('admin_settings')
-        .select('theme_color_hsl')
-        .eq('admin_id', store.admin_id)
-        .single();
+      let theme = null;
+      try {
+        const { data: settings, error: settingsError } = await supabase
+          .from('admin_settings')
+          .select('theme_color_hsl')
+          .eq('admin_id', store.admin_id)
+          .maybeSingle();
 
-      return { store, theme: settings?.theme_color_hsl };
+        if (!settingsError && settings) {
+          theme = settings.theme_color_hsl;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch theme settings:', err);
+        // Continue without theme
+      }
+
+      return { store, theme };
     },
     enabled: !!storeSlug,
     staleTime: 5 * 60 * 1000,
