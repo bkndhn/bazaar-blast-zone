@@ -179,18 +179,18 @@ export default function AdminProducts() {
     <AdminLayout title="Products">
       {/* Search and Filter Section */}
       <div className="mb-4 space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex-1 max-w-sm">
+        <div className="flex flex-col gap-3">
+          <div className="flex-1">
             <Input
-              placeholder="Search products by name, SKU..."
+              placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={stockFilter} onValueChange={(value: 'all' | 'low_stock_asc' | 'low_stock_desc') => setStockFilter(value)}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Sort by stock" />
               </SelectTrigger>
               <SelectContent>
@@ -204,9 +204,9 @@ export default function AdminProducts() {
               if (!open) setEditProduct(null);
             }}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button size="sm" className="gap-1">
                   <Plus className="h-4 w-4" />
-                  Add Product
+                  Add
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
