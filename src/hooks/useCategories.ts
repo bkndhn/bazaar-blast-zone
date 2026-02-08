@@ -16,17 +16,22 @@ export interface Category {
 
 // Categories for home page - respects show_on_home flag
 // TODO: Filter by admin_id in multi-tenant setup
-export function useCategories() {
+export function useCategories(adminId?: string) {
   return useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories', adminId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('categories')
         .select('*')
         .eq('is_active', true)
         .eq('show_on_home', true)
         .order('sort_order', { ascending: true });
 
+      if (adminId) {
+        query = query.eq('admin_id', adminId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Category[];
     },
@@ -34,16 +39,21 @@ export function useCategories() {
 }
 
 // All active categories (for product listing pages)
-export function useAllCategories() {
+export function useAllCategories(adminId?: string) {
   return useQuery({
-    queryKey: ['all-categories'],
+    queryKey: ['all-categories', adminId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('categories')
         .select('*')
         .eq('is_active', true)
         .order('name');
 
+      if (adminId) {
+        query = query.eq('admin_id', adminId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Category[];
     },

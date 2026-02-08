@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Store, Truck, Clock } from 'lucide-react';
+import { Store, Truck, Clock, Link as LinkIcon, Copy, Check } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +52,10 @@ export default function AdminSettings() {
     description: '',
     logo_url: '',
     banner_url: '',
+    slug: '',
   });
+
+  const [slugCopied, setSlugCopied] = useState(false);
 
   const [deliverySettings, setDeliverySettings] = useState({
     delivery_within_tamilnadu_days: 3,
@@ -69,6 +72,7 @@ export default function AdminSettings() {
         description: store.description || '',
         logo_url: store.logo_url || '',
         banner_url: store.banner_url || '',
+        slug: (store as any).slug || '',
       });
     }
   }, [store]);
@@ -94,11 +98,12 @@ export default function AdminSettings() {
         const { error } = await supabase
           .from('stores')
           .update({
-            name: formData.name,
+          name: formData.name,
             description: formData.description,
             logo_url: formData.logo_url || null,
             banner_url: formData.banner_url || null,
-          })
+            slug: formData.slug || null,
+          } as any)
           .eq('id', store.id);
         if (error) throw error;
       } else {
@@ -106,13 +111,14 @@ export default function AdminSettings() {
         const { error } = await supabase
           .from('stores')
           .insert({
-            admin_id: user.id,
+          admin_id: user.id,
             name: formData.name,
             description: formData.description,
             logo_url: formData.logo_url || null,
             banner_url: formData.banner_url || null,
-            is_active: false, // Will be activated by super admin
-          });
+            slug: formData.slug || null,
+            is_active: false,
+          } as any);
         if (error) throw error;
 
         // Also create admin_accounts entry if not exists
@@ -240,6 +246,41 @@ export default function AdminSettings() {
                   placeholder="My Awesome Store"
                   required
                 />
+              </div>
+
+              {/* Store Slug / URL */}
+              <div className="space-y-2">
+                <Label htmlFor="slug">Store URL Slug</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+                  placeholder="my-store"
+                />
+                {formData.slug && (
+                  <div className="flex items-center gap-2 rounded-md bg-muted p-2">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <code className="text-xs flex-1 truncate">
+                      {window.location.origin}/s/{formData.slug}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 flex-shrink-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/s/${formData.slug}`);
+                        setSlugCopied(true);
+                        setTimeout(() => setSlugCopied(false), 2000);
+                      }}
+                    >
+                      {slugCopied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Customers can visit your store at this unique URL. Only lowercase letters, numbers, and hyphens.
+                </p>
               </div>
 
               <div className="space-y-2">

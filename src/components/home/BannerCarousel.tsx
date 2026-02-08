@@ -32,19 +32,24 @@ const defaultBanners = [
   },
 ];
 
-export function BannerCarousel() {
+export function BannerCarousel({ adminId }: { adminId?: string }) {
   const [current, setCurrent] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
 
   const { data: fetchedBanners, isLoading } = useQuery({
-    queryKey: ['active-banners'],
+    queryKey: ['active-banners', adminId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('banner_ads')
         .select('*')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 
+      if (adminId) {
+        query = query.eq('admin_id', adminId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Banner[];
     },

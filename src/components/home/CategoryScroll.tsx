@@ -13,8 +13,8 @@ const categoryColors = [
   'bg-secondary',
 ];
 
-export function CategoryScroll() {
-  const { data: categories, isLoading } = useCategories();
+export function CategoryScroll({ adminId }: { adminId?: string }) {
+  const { data: categories, isLoading } = useCategories(adminId);
 
   if (isLoading) {
     return (

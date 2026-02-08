@@ -29,7 +29,7 @@ export interface ProductImage {
   sort_order: number;
 }
 
-export function useProducts(options?: { categoryId?: string; storeId?: string; limit?: number }) {
+export function useProducts(options?: { categoryId?: string; storeId?: string; adminId?: string; limit?: number }) {
   return useQuery({
     queryKey: ['products', options],
     queryFn: async () => {
@@ -50,6 +50,10 @@ export function useProducts(options?: { categoryId?: string; storeId?: string; l
 
       if (options?.storeId) {
         query = query.eq('store_id', options.storeId);
+      }
+
+      if (options?.adminId) {
+        query = query.eq('admin_id', options.adminId);
       }
 
       if (options?.limit) {
