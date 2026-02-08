@@ -1,10 +1,11 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Settings, 
+import { useQuery } from '@tanstack/react-query';
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Settings,
   LogOut,
   ChevronLeft,
   Store,
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
 const adminNavItems = [
@@ -45,9 +47,85 @@ interface AdminLayoutProps {
 export function AdminLayout({ children, title }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, isAdmin, isSuperAdmin } = useAuth();
+  const { user, signOut, isAdmin, isSuperAdmin } = useAuth();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  // Fetch admin's theme settings
+  const { data: adminSettings } = useQuery({
+    queryKey: ['admin-settings-theme', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from('admin_settings')
+        .select('theme_color_hsl')
+        .eq('admin_id', user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Apply theme to admin layout
+  useEffect(() => {
+    const root = document.documentElement;
+    const themeColor = adminSettings?.theme_color_hsl;
+
+    if (themeColor) {
+      root.style.setProperty('--primary', themeColor);
+      root.style.setProperty('--ring', themeColor);
+
+      // Update status bar meta tag
+      const hexColor = hslToHex(themeColor);
+      let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (!metaThemeColor) {
+        metaThemeColor = document.createElement('meta');
+        metaThemeColor.setAttribute('name', 'theme-color');
+        document.head.appendChild(metaThemeColor);
+      }
+      metaThemeColor.setAttribute('content', hexColor);
+    }
+
+    return () => {
+      // Reset on unmount (leaving admin area)
+      root.style.setProperty('--primary', '217 91% 60%');
+      root.style.setProperty('--ring', '217 91% 60%');
+    };
+  }, [adminSettings?.theme_color_hsl]);
+
+  // Helper to convert HSL to Hex for meta tag
+  function hslToHex(hsl: string): string {
+    try {
+      const parts = hsl.match(/[\d.]+/g);
+      if (!parts || parts.length < 3) return '#3b82f6';
+
+      let h = parseFloat(parts[0]);
+      let s = parseFloat(parts[1]) / 100;
+      let l = parseFloat(parts[2]) / 100;
+
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+
+      if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+      else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+      else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+      else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+      else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+
+      const toHex = (n: number) => {
+        const hex = Math.round((n + m) * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      };
+
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    } catch {
+      return '#3b82f6';
+    }
+  }
 
   // Redirect if not admin (super admins should use super-admin routes)
   if (!isAdmin) {
@@ -75,10 +153,10 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             <span className="font-semibold">Seller Dashboard</span>
           </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => setShowSignOutConfirm(true)} 
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowSignOutConfirm(true)}
           className="gap-2"
         >
           <LogOut className="h-4 w-4" />
@@ -93,15 +171,15 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             {adminNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
-              
+
               return (
                 <Link
                   key={item.path}
                   to={item.path}
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    isActive 
-                      ? 'bg-primary text-primary-foreground' 
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
@@ -132,7 +210,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
         {mobileBottomNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          
+
           return (
             <Link
               key={item.path}

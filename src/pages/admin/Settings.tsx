@@ -103,14 +103,36 @@ export default function AdminSettings() {
   };
 
   // Helper to convert HSL to Hex (for input value)
-  const hslToHex = (hsl: string) => {
-    // Very basic approximation or default to black if invalid
-    // Since saving "User's HSL" back to Hex is hard without storing the original Hex, 
-    // we might just default the picker to a "close enough" color or just black if we can't parse.
-    // Better strategy: Store BOTH or just store HSL and let user pick new one always starting from empty/black?
-    // Let's rely on a predefined set + custom picker that updates the HSL. 
-    // For display, we can try to guess or just use a default.
-    return "#000000";
+  const hslToHex = (hsl: string): string => {
+    try {
+      const parts = hsl.match(/[\d.]+/g);
+      if (!parts || parts.length < 3) return '#3b82f6'; // Default blue
+
+      let h = parseFloat(parts[0]);
+      let s = parseFloat(parts[1]) / 100;
+      let l = parseFloat(parts[2]) / 100;
+
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+
+      if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+      else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+      else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+      else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+      else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+
+      const toHex = (n: number) => {
+        const hex = Math.round((n + m) * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      };
+
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    } catch {
+      return '#3b82f6';
+    }
   };
 
 
@@ -321,6 +343,7 @@ export default function AdminSettings() {
                     <Input
                       id="custom-color"
                       type="color"
+                      value={hslToHex(deliverySettings.theme_color_hsl)}
                       className="h-10 w-10 cursor-pointer overflow-hidden rounded-full border-0 p-0"
                       onChange={(e) => setDeliverySettings({
                         ...deliverySettings,
@@ -329,8 +352,31 @@ export default function AdminSettings() {
                     />
                   </div>
                 </div>
+
+                {/* Hex Code Input */}
+                <div className="flex items-center gap-2 pt-2">
+                  <Label htmlFor="hex-input" className="text-sm whitespace-nowrap">Hex Code:</Label>
+                  <Input
+                    id="hex-input"
+                    type="text"
+                    placeholder="#3b82f6"
+                    value={hslToHex(deliverySettings.theme_color_hsl)}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+                        setDeliverySettings({
+                          ...deliverySettings,
+                          theme_color_hsl: hexToHsl(hex)
+                        });
+                      }
+                    }}
+                    className="w-28 font-mono text-sm"
+                  />
+                  <span className="text-xs text-muted-foreground">(e.g., #ff5500)</span>
+                </div>
+
                 <p className="text-xs text-muted-foreground pt-2">
-                  Select a preset or click the color wheel for a custom color.
+                  Select a preset, use the color wheel, or enter a hex code directly.
                 </p>
               </div>
             </div>
