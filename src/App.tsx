@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { StoreProvider } from "@/contexts/StoreContext";
 
 // Customer Pages
 import Index from "./pages/Index";
@@ -14,7 +15,6 @@ import Cart from "./pages/Cart";
 import Wishlist from "./pages/Wishlist";
 import Account from "./pages/Account";
 import ProfileEdit from "./pages/ProfileEdit";
-// Search is now integrated into the home page
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Category from "./pages/Category";
@@ -27,6 +27,7 @@ import Support from "./pages/Support";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import SupportTickets from "./pages/SupportTickets";
+import StoreFront from "./pages/StoreFront";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -57,7 +58,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Customer Routes */}
+              {/* Default Home (shows all products) */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
@@ -65,7 +66,6 @@ const App = () => (
               <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/account" element={<Account />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
-              {/* Search integrated into home page */}
               <Route path="/products" element={<Products />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/category/:slug" element={<Category />} />
@@ -77,6 +77,12 @@ const App = () => (
               <Route path="/support" element={<Support />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/tickets" element={<SupportTickets />} />
+
+              {/* Store-specific routes: /store-slug */}
+              <Route path="/s/:storeSlug" element={<StoreProvider><StoreFront /></StoreProvider>} />
+              <Route path="/s/:storeSlug/products" element={<StoreProvider><Products /></StoreProvider>} />
+              <Route path="/s/:storeSlug/product/:id" element={<StoreProvider><ProductDetail /></StoreProvider>} />
+              <Route path="/s/:storeSlug/category/:slug" element={<StoreProvider><Category /></StoreProvider>} />
 
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
