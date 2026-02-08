@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Package } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Package, Eye, EyeOff } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -119,6 +119,47 @@ export default function AdminProducts() {
     },
   });
 
+  const toggleVisibility = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: !isActive })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, { isActive }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      toast({ title: isActive ? 'Product hidden from customers' : 'Product visible to customers' });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'low_stock_asc' | 'low_stock_desc'>('all');
+
+  // Filter and sort products
+  const filteredProducts = (products || [])
+    .filter((product) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        product.name.toLowerCase().includes(query) ||
+        product.sku?.toLowerCase().includes(query) ||
+        product.description?.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      if (stockFilter === 'low_stock_asc') {
+        return a.stock_quantity - b.stock_quantity;
+      }
+      if (stockFilter === 'low_stock_desc') {
+        return b.stock_quantity - a.stock_quantity;
+      }
+      return 0; // Keep original order
+    });
+
   if (!store) {
     return (
       <AdminLayout title="Products">
@@ -136,38 +177,61 @@ export default function AdminProducts() {
 
   return (
     <AdminLayout title="Products">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-muted-foreground">
-          {products?.length || 0} products
-        </p>
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open) setEditProduct(null);
-        }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {editProduct ? 'Edit Product' : 'Add New Product'}
-              </DialogTitle>
-            </DialogHeader>
-            <ProductForm
-              product={editProduct}
-              storeId={store.id}
-              categories={categories || []}
-              onSuccess={() => {
-                setIsOpen(false);
-                setEditProduct(null);
-                queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-              }}
+      {/* Search and Filter Section */}
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-1 max-w-sm">
+            <Input
+              placeholder="Search products by name, SKU..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full"
             />
-          </DialogContent>
-        </Dialog>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={stockFilter} onValueChange={(value: 'all' | 'low_stock_asc' | 'low_stock_desc') => setStockFilter(value)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Sort by stock" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Default</SelectItem>
+                <SelectItem value="low_stock_asc">Stock: Low → High</SelectItem>
+                <SelectItem value="low_stock_desc">Stock: High → Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <Dialog open={isOpen} onOpenChange={(open) => {
+              setIsOpen(open);
+              if (!open) setEditProduct(null);
+            }}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editProduct ? 'Edit Product' : 'Add New Product'}
+                  </DialogTitle>
+                </DialogHeader>
+                <ProductForm
+                  product={editProduct}
+                  storeId={store.id}
+                  categories={categories || []}
+                  onSuccess={() => {
+                    setIsOpen(false);
+                    setEditProduct(null);
+                    queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {filteredProducts.length} of {products?.length || 0} products
+        </p>
       </div>
 
       {isLoading ? (
@@ -176,17 +240,17 @@ export default function AdminProducts() {
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
-      ) : !products?.length ? (
+      ) : !filteredProducts.length ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-4 text-lg font-medium">No products yet</p>
+          <p className="mt-4 text-lg font-medium">{searchQuery ? 'No products found' : 'No products yet'}</p>
           <p className="mt-1 text-muted-foreground">
-            Add your first product to start selling
+            {searchQuery ? 'Try a different search term' : 'Add your first product to start selling'}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {products.map((product) => {
+          {filteredProducts.map((product) => {
             const primaryImage = product.images?.find(img => img.is_primary)?.image_url
               || product.images?.[0]?.image_url
               || '/placeholder.svg';
@@ -211,13 +275,12 @@ export default function AdminProducts() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className={`rounded px-2 py-0.5 text-xs ${
-                        product.stock_quantity === 0
-                          ? 'bg-destructive/20 text-destructive'
-                          : product.is_active 
-                            ? 'bg-success/20 text-success' 
-                            : 'bg-muted text-muted-foreground'
-                      }`}>
+                      <span className={`rounded px-2 py-0.5 text-xs ${product.stock_quantity === 0
+                        ? 'bg-destructive/20 text-destructive'
+                        : product.is_active
+                          ? 'bg-success/20 text-success'
+                          : 'bg-muted text-muted-foreground'
+                        }`}>
                         {product.stock_quantity === 0 ? 'Out of Stock' : product.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -235,11 +298,23 @@ export default function AdminProducts() {
                       Edit
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleVisibility.mutate({ id: product.id, isActive: product.is_active })}
+                      disabled={toggleVisibility.isPending}
+                    >
+                      {product.is_active ? (
+                        <><EyeOff className="mr-1 h-3 w-3" />Hide</>
+                      ) : (
+                        <><Eye className="mr-1 h-3 w-3" />Show</>
+                      )}
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => setDeleteConfirm({ 
-                        open: true, 
+                      onClick={() => setDeleteConfirm({
+                        open: true,
                         productId: product.id,
                         productName: product.name
                       })}
@@ -401,7 +476,7 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
       // Handle images - delete old ones and insert new ones
       if (productId) {
         await supabase.from('product_images').delete().eq('product_id', productId);
-        
+
         if (images.length > 0) {
           const imageRecords = images.map((img, index) => ({
             product_id: productId,
@@ -414,7 +489,7 @@ function ProductForm({ product, storeId, categories, onSuccess }: ProductFormPro
           const { error: imgError } = await supabase
             .from('product_images')
             .insert(imageRecords);
-          
+
           if (imgError) throw imgError;
         }
       }

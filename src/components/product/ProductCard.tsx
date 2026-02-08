@@ -108,7 +108,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
       )}
     >
       {/* Image Container */}
-      <div className="relative aspect-square overflow-hidden bg-muted">
+      <div className="relative aspect-[4/5] overflow-hidden bg-muted">
         <img
           src={primaryImage}
           alt={product.name}
@@ -215,7 +215,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
         <Button
           variant={isInCart ? "secondary" : "default"}
           size="sm"
-          className="mt-auto pt-2 w-full gap-1"
+          className="mt-auto w-full gap-1 flex items-center justify-center"
           onClick={handleAddToCart}
           disabled={isOutOfStock || addToCart.isPending}
         >

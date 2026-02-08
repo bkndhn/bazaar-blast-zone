@@ -39,18 +39,18 @@
     /* E-commerce specific tokens */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-    
+
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    
+
     --sale: 0 84% 60%;
     --sale-foreground: 0 0% 100%;
-    
+
     --rating: 43 96% 56%;
-    
+
     /* Navigation */
     --nav-height: 4rem;
-    --bottom-nav-height: 4rem;
+    --bottom-nav-height: 3.25rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -93,13 +93,13 @@
 
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-    
+
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    
+
     --sale: 0 84% 60%;
     --sale-foreground: 0 0% 100%;
-    
+
     --rating: 43 96% 56%;
 
     --sidebar-background: 222 47% 8%;
@@ -121,6 +121,11 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden;
+  }
+
+  html {
+    overflow-x: hidden;
   }
 
   /* Hide scrollbar but keep functionality */
@@ -128,7 +133,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -138,12 +143,12 @@
   .text-balance {
     text-wrap: balance;
   }
-  
+
   /* Safe area for mobile bottom navigation */
   .pb-safe {
     padding-bottom: max(env(safe-area-inset-bottom), 1rem);
   }
-  
+
   .mb-bottom-nav {
     margin-bottom: calc(var(--bottom-nav-height) + 1rem);
   }

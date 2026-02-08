@@ -42,7 +42,7 @@ export default function OrderDetail() {
         .select('*')
         .eq('order_id', id)
         .order('created_at', { ascending: false });
-      
+
       if (data) setStatusHistory(data);
     };
 
@@ -163,7 +163,7 @@ export default function OrderDetail() {
         {/* Status Tracker */}
         <div className="rounded-lg border border-border bg-card p-4">
           <h2 className="font-semibold mb-4">Order Status</h2>
-          
+
           <div className="relative">
             {statusSteps.map((step, index) => {
               const Icon = step.icon;
@@ -179,7 +179,7 @@ export default function OrderDetail() {
                       isCompleted ? 'bg-success' : 'bg-border'
                     )} style={{ top: `${index * 48 + 24}px` }} />
                   )}
-                  
+
                   {/* Icon */}
                   <div className={cn(
                     'relative z-10 flex h-6 w-6 items-center justify-center rounded-full',
@@ -247,27 +247,40 @@ export default function OrderDetail() {
         </div>
 
         {/* Status History */}
-        {statusHistory.length > 0 && (
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h2 className="font-semibold mb-3">Updates</h2>
-            <div className="space-y-3">
-              {statusHistory.map((history) => (
-                <div key={history.id} className="flex gap-3 text-sm">
-                  <div className="w-1 rounded-full bg-primary" />
-                  <div>
-                    <p className="font-medium capitalize">{history.status.replace('_', ' ')}</p>
-                    {history.notes && (
-                      <p className="text-muted-foreground">{history.notes}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(history.created_at), 'MMM d, h:mm a')}
-                    </p>
+        {statusHistory.length > 0 && (() => {
+          // Filter to show only the first (oldest) occurrence of each status
+          const seenStatuses = new Set<string>();
+          const uniqueStatusHistory = [...statusHistory]
+            .reverse() // Reverse to get oldest first
+            .filter((history) => {
+              if (seenStatuses.has(history.status)) return false;
+              seenStatuses.add(history.status);
+              return true;
+            })
+            .reverse(); // Reverse back to show newest first
+
+          return (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h2 className="font-semibold mb-3">Updates</h2>
+              <div className="space-y-3">
+                {uniqueStatusHistory.map((history) => (
+                  <div key={history.id} className="flex gap-3 text-sm">
+                    <div className="w-1 rounded-full bg-primary" />
+                    <div>
+                      <p className="font-medium capitalize">{history.status.replace('_', ' ')}</p>
+                      {history.notes && (
+                        <p className="text-muted-foreground">{history.notes}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(history.created_at), 'MMM d, h:mm a')}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Order Items */}
         <div className="rounded-lg border border-border bg-card p-4">
@@ -283,7 +296,17 @@ export default function OrderDetail() {
                 <div className="flex-1">
                   <p className="font-medium line-clamp-1">{item.product_name}</p>
                   <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                  <p className="text-sm font-medium">₹{item.total_price.toLocaleString('en-IN')}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">₹{item.total_price.toLocaleString('en-IN')}</p>
+                    {order.status === 'delivered' && item.product_id && (
+                      <Link
+                        to={`/product/${item.product_id}`}
+                        className="text-xs text-rating font-medium hover:underline"
+                      >
+                        ⭐ Rate & Review
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

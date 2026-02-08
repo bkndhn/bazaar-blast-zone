@@ -19,20 +19,20 @@ export function BottomNav() {
   const cartCount = cart?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">
       <div className="flex h-bottom-nav items-center justify-around">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
-          
+
           return (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors',
-                isActive 
-                  ? 'text-primary' 
+                isActive
+                  ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >

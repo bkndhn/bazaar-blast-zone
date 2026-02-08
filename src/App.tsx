@@ -78,11 +78,16 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/tickets" element={<SupportTickets />} />
 
-              {/* Store-specific routes: /store-slug */}
+              {/* Store-specific routes: /s/store-slug */}
               <Route path="/s/:storeSlug" element={<StoreProvider><StoreFront /></StoreProvider>} />
               <Route path="/s/:storeSlug/products" element={<StoreProvider><Products /></StoreProvider>} />
               <Route path="/s/:storeSlug/product/:id" element={<StoreProvider><ProductDetail /></StoreProvider>} />
               <Route path="/s/:storeSlug/category/:slug" element={<StoreProvider><Category /></StoreProvider>} />
+              <Route path="/s/:storeSlug/cart" element={<StoreProvider><Cart /></StoreProvider>} />
+              <Route path="/s/:storeSlug/wishlist" element={<StoreProvider><Wishlist /></StoreProvider>} />
+              <Route path="/s/:storeSlug/checkout" element={<StoreProvider><Checkout /></StoreProvider>} />
+              <Route path="/s/:storeSlug/orders" element={<StoreProvider><Orders /></StoreProvider>} />
+              <Route path="/s/:storeSlug/order/:id" element={<StoreProvider><OrderDetail /></StoreProvider>} />
 
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
