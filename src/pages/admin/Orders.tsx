@@ -27,14 +27,16 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-destructive/20 text-destructive',
 };
 
-{ value: 'delhivery', label: 'Delhivery', trackingUrl: 'https://www.delhivery.com/track/package/' },
-{ value: 'professional', label: 'Professional Courier', trackingUrl: 'https://www.tpcindia.com/track.aspx?id=' },
-{ value: 'bluedart', label: 'BlueDart', trackingUrl: 'https://www.bluedart.com/tracking/' },
-{ value: 'dtdc', label: 'DTDC', trackingUrl: 'https://www.dtdc.in/tracking/tracking_results.asp?Ession_id=' },
-{ value: 'ecom', label: 'Ecom Express', trackingUrl: 'https://ecomexpress.in/tracking/?awb_field=' },
-{ value: 'xpressbees', label: 'XpressBees', trackingUrl: 'https://www.xpressbees.com/track?awbNo=' },
-{ value: 'trackon', label: 'Trackon', trackingUrl: 'https://trackon.in/track?awb=' },
-{ value: 'other', label: 'Other', trackingUrl: '' },
+const COURIER_OPTIONS = [
+  { value: 'delhivery', label: 'Delhivery', trackingUrl: 'https://www.delhivery.com/track/package/' },
+  { value: 'professional', label: 'Professional Courier', trackingUrl: 'https://www.tpcindia.com/track.aspx?id=' },
+  { value: 'bluedart', label: 'BlueDart', trackingUrl: 'https://www.bluedart.com/tracking/' },
+  { value: 'dtdc', label: 'DTDC', trackingUrl: 'https://www.dtdc.in/tracking/tracking_results.asp?Ession_id=' },
+  { value: 'ecom', label: 'Ecom Express', trackingUrl: 'https://ecomexpress.in/tracking/?awb_field=' },
+  { value: 'xpressbees', label: 'XpressBees', trackingUrl: 'https://www.xpressbees.com/track?awbNo=' },
+  { value: 'trackon', label: 'Trackon', trackingUrl: 'https://trackon.in/track?awb=' },
+  { value: 'other', label: 'Other', trackingUrl: '' },
+];
 
 export default function AdminOrders() {
   const { user } = useAuth();
@@ -157,7 +159,7 @@ export default function AdminOrders() {
       courier_service?: string;
       estimated_delivery_date?: string;
     }) => {
-      const courier = courierServices.find(c => c.value === data.courier_service);
+      const courier = COURIER_OPTIONS.find(c => c.value === data.courier_service);
       const trackingUrl = courier && data.tracking_number
         ? courier.trackingUrl + data.tracking_number
         : null;
@@ -456,7 +458,7 @@ export default function AdminOrders() {
                   <SelectValue placeholder="Select courier" />
                 </SelectTrigger>
                 <SelectContent>
-                  {courierServices.map((courier) => (
+                  {COURIER_OPTIONS.map((courier) => (
                     <SelectItem key={courier.value} value={courier.value}>
                       {courier.label}
                     </SelectItem>
