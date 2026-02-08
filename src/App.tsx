@@ -44,7 +44,7 @@ import AdminSupportSettings from "./pages/admin/SupportSettings";
 import SuperAdminDashboard from "./pages/super-admin/Dashboard";
 import SuperAdminAdmins from "./pages/super-admin/Admins";
 import SuperAdminUsers from "./pages/super-admin/Users";
-import SuperAdminCategories from "./pages/super-admin/Categories";
+// Categories removed from super admin - managed per admin only
 import SuperAdminStores from "./pages/super-admin/Stores";
 
 const queryClient = new QueryClient();
@@ -99,7 +99,7 @@ const App = () => (
               <Route path="/super-admin" element={<SuperAdminDashboard />} />
               <Route path="/super-admin/admins" element={<SuperAdminAdmins />} />
               <Route path="/super-admin/users" element={<SuperAdminUsers />} />
-              <Route path="/super-admin/categories" element={<SuperAdminCategories />} />
+              {/* Categories removed from super admin */}
               <Route path="/super-admin/stores" element={<SuperAdminStores />} />
 
               {/* Catch-all */}

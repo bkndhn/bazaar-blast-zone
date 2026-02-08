@@ -192,15 +192,18 @@ export function ProductCard({ product, className }: ProductCardProps) {
           )}
         </div>
 
+        {/* Qty & Unit */}
+        {extendedProduct.unit_value && extendedProduct.unit_type && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {extendedProduct.unit_value} {extendedProduct.unit_type}
+            {extendedProduct.unit_label ? ` (${extendedProduct.unit_label})` : ''}
+          </p>
+        )}
+
         {/* Price */}
-        <div className="mt-2 flex items-baseline gap-2">
+        <div className="mt-1 flex items-baseline gap-2">
           <span className="text-base font-bold text-foreground">
             ₹{product.price.toLocaleString('en-IN')}
-            {extendedProduct.unit_label && (
-              <span className="text-xs font-normal text-muted-foreground">
-                /{extendedProduct.unit_label}
-              </span>
-            )}
           </span>
           {product.compare_at_price && (
             <span className="text-sm text-muted-foreground line-through">

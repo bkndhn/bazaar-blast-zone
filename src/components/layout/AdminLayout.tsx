@@ -49,9 +49,9 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Redirect if not admin
-  if (!isAdmin && !isSuperAdmin) {
-    navigate('/');
+  // Redirect if not admin (super admins should use super-admin routes)
+  if (!isAdmin) {
+    navigate(isSuperAdmin ? '/super-admin' : '/');
     return null;
   }
 

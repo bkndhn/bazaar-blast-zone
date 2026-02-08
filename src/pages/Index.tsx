@@ -11,16 +11,16 @@ const Index = () => {
 
   return (
     <MainLayout showHeader={false}>
+      {/* Search + Filter at top */}
+      <section className="pb-2">
+        <HomeSearch products={products} categories={categories} isLoading={isLoading} />
+      </section>
+
       {/* Banner Carousel */}
       <BannerCarousel />
 
       {/* Categories */}
       <CategoryScroll />
-
-      {/* Search + All Products */}
-      <section className="pb-6">
-        <HomeSearch products={products} categories={categories} isLoading={isLoading} />
-      </section>
     </MainLayout>
   );
 };
