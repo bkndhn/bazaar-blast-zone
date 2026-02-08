@@ -7,6 +7,7 @@ import { useAllCategories } from '@/hooks/useCategories';
 import { useStore } from '@/contexts/StoreContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Store } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function StoreFront() {
   const { store, adminId, isLoading: storeLoading } = useStore();

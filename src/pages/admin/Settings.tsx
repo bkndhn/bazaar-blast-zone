@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { compressImage } from '@/lib/imageCompression';
 import { toast } from '@/hooks/use-toast';
 
 export default function AdminSettings() {
@@ -141,7 +142,7 @@ export default function AdminSettings() {
         shiprocket_password: adminSettings.shiprocket_password || '',
         is_shipping_integration_enabled: adminSettings.is_shipping_integration_enabled || false,
         terms_conditions: adminSettings.terms_conditions || '',
-        theme_color_hsl: adminSettings.theme_color_hsl || '217 91% 60%',
+        theme_color_hsl: (adminSettings as any).theme_color_hsl || '217 91% 60%',
       });
     }
   }, [adminSettings]);
@@ -231,9 +232,6 @@ export default function AdminSettings() {
     },
   });
 
-  import { compressImage } from '@/lib/imageCompression';
-
-  // ... (existing imports)
 
   const handleLogoUpload = async (file: File) => {
     try {
