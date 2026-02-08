@@ -3,7 +3,7 @@ import { FileText, ArrowLeft } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function Terms() {
@@ -19,21 +19,27 @@ export default function Terms() {
     // Let's fetch ALL admins' terms for now and list them if multiple, or just show if one.
     // A better approach for "Bazaar" is to show the terms of the platform OR require user to select store.
 
-    // Assuming single-store usage for most end-customers:
+    const [searchParams] = useSearchParams();
+    const adminIdParam = searchParams.get('adminId');
+
     const { data: termsList, isLoading } = useQuery({
-        queryKey: ['terms-conditions'],
+        queryKey: ['terms-conditions', adminIdParam],
         queryFn: async () => {
-            // Fetch settings that have terms defined
-            const { data, error } = await supabase
+            let query = supabase
                 .from('admin_settings')
                 .select(`
-          terms_conditions,
-          admin_id,
-          stores:stores(name)
-        `)
+                  terms_conditions,
+                  admin_id,
+                  stores:stores(name)
+                `)
                 .not('terms_conditions', 'is', null)
                 .neq('terms_conditions', '');
 
+            if (adminIdParam) {
+                query = query.eq('admin_id', adminIdParam);
+            }
+
+            const { data, error } = await query;
             if (error) throw error;
             return data;
         },

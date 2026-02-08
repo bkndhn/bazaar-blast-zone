@@ -103,7 +103,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
     <Link
       to={`/product/${product.id}`}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md',
+        'group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md h-full',
         className
       )}
     >
@@ -215,7 +215,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
         <Button
           variant={isInCart ? "secondary" : "default"}
           size="sm"
-          className="mt-2 w-full gap-1"
+          className="mt-auto pt-2 w-full gap-1"
           onClick={handleAddToCart}
           disabled={isOutOfStock || addToCart.isPending}
         >

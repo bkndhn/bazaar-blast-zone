@@ -70,7 +70,48 @@ export default function AdminSettings() {
     shiprocket_password: '',
     is_shipping_integration_enabled: false,
     terms_conditions: '',
+    theme_color_hsl: '217 91% 60%',
   });
+
+  // Helper to convert Hex to HSL (approximate)
+  const hexToHsl = (hex: string) => {
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+      r = parseInt("0x" + hex[1] + hex[1]);
+      g = parseInt("0x" + hex[2] + hex[2]);
+      b = parseInt("0x" + hex[3] + hex[3]);
+    } else if (hex.length === 7) {
+      r = parseInt("0x" + hex[1] + hex[2]);
+      g = parseInt("0x" + hex[3] + hex[4]);
+      b = parseInt("0x" + hex[5] + hex[6]);
+    }
+    r /= 255; g /= 255; b /= 255;
+    const cmin = Math.min(r, g, b), cmax = Math.max(r, g, b), delta = cmax - cmin;
+    let h = 0, s = 0, l = 0;
+    if (delta === 0) h = 0;
+    else if (cmax === r) h = ((g - b) / delta) % 6;
+    else if (cmax === g) h = (b - r) / delta + 2;
+    else h = (r - g) / delta + 4;
+    h = Math.round(h * 60);
+    if (h < 0) h += 360;
+    l = (cmax + cmin) / 2;
+    s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+    s = +(s * 100).toFixed(1);
+    l = +(l * 100).toFixed(1);
+    return `${h} ${s}% ${l}%`;
+  };
+
+  // Helper to convert HSL to Hex (for input value)
+  const hslToHex = (hsl: string) => {
+    // Very basic approximation or default to black if invalid
+    // Since saving "User's HSL" back to Hex is hard without storing the original Hex, 
+    // we might just default the picker to a "close enough" color or just black if we can't parse.
+    // Better strategy: Store BOTH or just store HSL and let user pick new one always starting from empty/black?
+    // Let's rely on a predefined set + custom picker that updates the HSL. 
+    // For display, we can try to guess or just use a default.
+    return "#000000";
+  };
+
 
   // Update form when store data loads
   useEffect(() => {
@@ -100,6 +141,7 @@ export default function AdminSettings() {
         shiprocket_password: adminSettings.shiprocket_password || '',
         is_shipping_integration_enabled: adminSettings.is_shipping_integration_enabled || false,
         terms_conditions: adminSettings.terms_conditions || '',
+        theme_color_hsl: adminSettings.theme_color_hsl || '217 91% 60%',
       });
     }
   }, [adminSettings]);
@@ -175,6 +217,7 @@ export default function AdminSettings() {
           shiprocket_password: deliverySettings.shiprocket_password,
           is_shipping_integration_enabled: deliverySettings.is_shipping_integration_enabled,
           terms_conditions: deliverySettings.terms_conditions,
+          theme_color_hsl: deliverySettings.theme_color_hsl,
         }, { onConflict: 'admin_id' });
 
       if (error) throw error;
@@ -188,20 +231,38 @@ export default function AdminSettings() {
     },
   });
 
+  import { compressImage } from '@/lib/imageCompression';
+
+  // ... (existing imports)
+
   const handleLogoUpload = async (file: File) => {
-    const url = await uploadLogo(file);
-    if (url) {
-      setFormData({ ...formData, logo_url: url });
+    try {
+      const compressedFile = await compressImage(file, 0.1); // Max 0.1 MB = 100KB
+      const url = await uploadLogo(compressedFile);
+      if (url) {
+        setFormData({ ...formData, logo_url: url });
+      }
+      return url;
+    } catch (error) {
+      console.error('Compression failed:', error);
+      toast({ title: 'Image compression failed', variant: 'destructive' });
+      return null;
     }
-    return url;
   };
 
   const handleBannerUpload = async (file: File) => {
-    const url = await uploadBanner(file);
-    if (url) {
-      setFormData({ ...formData, banner_url: url });
+    try {
+      const compressedFile = await compressImage(file, 0.1); // Max 0.1 MB = 100KB
+      const url = await uploadBanner(compressedFile);
+      if (url) {
+        setFormData({ ...formData, banner_url: url });
+      }
+      return url;
+    } catch (error) {
+      console.error('Compression failed:', error);
+      toast({ title: 'Image compression failed', variant: 'destructive' });
+      return null;
     }
-    return url;
   };
 
   if (isLoading) {
@@ -217,6 +278,67 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings">
       <div className="max-w-2xl space-y-6">
+
+        {/* Style & Theme */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="h-5 w-5 rounded-full border shadow-sm" style={{ background: `hsl(${deliverySettings.theme_color_hsl})` }} />
+              Store Appearance
+            </CardTitle>
+            <CardDescription>
+              Customize your store's primary brand color.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Primary Brand Color</Label>
+                <div className="flex flex-wrap gap-3">
+                  {/* Presets */}
+                  {[
+                    { name: 'Default Blue', val: '217 91% 60%', hex: '#3b82f6' },
+                    { name: 'Emerald', val: '142 76% 36%', hex: '#10b981' },
+                    { name: 'Violet', val: '262 83% 58%', hex: '#8b5cf6' },
+                    { name: 'Rose', val: '343 89% 56%', hex: '#f43f5e' },
+                    { name: 'Orange', val: '24 95% 53%', hex: '#f97316' },
+                  ].map((color) => (
+                    <button
+                      key={color.name}
+                      type="button"
+                      onClick={() => {
+                        setDeliverySettings({ ...deliverySettings, theme_color_hsl: color.val });
+                        saveDeliverySettings.mutate(); // Auto-save on click for instant feedback feel? Or wait for form submit. Let's wait.
+                      }}
+                      className={`h-10 w-10 rounded-full border-2 transition-all hover:scale-110 ${deliverySettings.theme_color_hsl === color.val ? 'border-primary ring-2 ring-primary/20' : 'border-transparent'
+                        }`}
+                      style={{ backgroundColor: color.hex }}
+                      title={color.name}
+                    />
+                  ))}
+
+                  {/* Custom Picker */}
+                  <div className="relative flex items-center justify-center">
+                    <Label htmlFor="custom-color" className="sr-only">Custom Color</Label>
+                    <Input
+                      id="custom-color"
+                      type="color"
+                      className="h-10 w-10 cursor-pointer overflow-hidden rounded-full border-0 p-0"
+                      onChange={(e) => setDeliverySettings({
+                        ...deliverySettings,
+                        theme_color_hsl: hexToHsl(e.target.value)
+                      })}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground pt-2">
+                  Select a preset or click the color wheel for a custom color.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Store Information */}
         <Card>
           <CardHeader>

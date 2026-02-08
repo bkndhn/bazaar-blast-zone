@@ -39,10 +39,41 @@ export default function StoreFront() {
 
   return (
     <MainLayout showHeader={false}>
+      {/* Store Header */}
+      {store && (
+        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container flex h-14 items-center gap-3">
+            {store.logo_url ? (
+              <img
+                src={store.logo_url}
+                alt={store.name}
+                className="h-8 w-8 rounded-full object-cover border"
+              />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Store className="h-4 w-4 text-primary" />
+              </div>
+            )}
+            <span className="font-semibold text-lg truncate">{store.name}</span>
+          </div>
+        </header>
+      )}
+
       <BannerCarousel adminId={adminId ?? undefined} />
       <CategoryScroll adminId={adminId ?? undefined} />
       <section className="pb-6">
         <HomeSearch products={products} categories={categories} isLoading={productsLoading} />
+      </section>
+
+      {/* Store Footer Links */}
+      <section className="py-6 border-t text-center">
+        <Link
+          to={`/terms?adminId=${adminId}`}
+          className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1"
+        >
+          <iframe style={{ display: 'none' }} />
+          Terms & Conditions
+        </Link>
       </section>
     </MainLayout>
   );
