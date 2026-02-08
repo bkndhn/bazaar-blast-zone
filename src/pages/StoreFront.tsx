@@ -39,11 +39,11 @@ export default function StoreFront() {
 
   return (
     <MainLayout showHeader={false}>
-      <section className="pb-2">
-        <HomeSearch products={products} categories={categories} isLoading={productsLoading} />
-      </section>
       <BannerCarousel adminId={adminId ?? undefined} />
       <CategoryScroll adminId={adminId ?? undefined} />
+      <section className="pb-6">
+        <HomeSearch products={products} categories={categories} isLoading={productsLoading} />
+      </section>
     </MainLayout>
   );
 }

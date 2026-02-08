@@ -67,10 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
       
       if (data?.status === 'paused') {
-        await supabase.auth.signOut();
+        // Use a flag to prevent re-triggering from onAuthStateChange
+        setRoles([]);
         setUser(null);
         setSession(null);
-        setRoles([]);
+        // Sign out without triggering the loop
+        await supabase.auth.signOut({ scope: 'local' });
         return false;
       }
     } catch (err) {
@@ -90,10 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         { event: 'UPDATE', schema: 'public', table: 'admin_accounts', filter: `user_id=eq.${user.id}` },
         async (payload) => {
           if ((payload.new as any).status === 'paused') {
-            await supabase.auth.signOut();
+            setRoles([]);
             setUser(null);
             setSession(null);
-            setRoles([]);
+            await supabase.auth.signOut({ scope: 'local' });
           }
         }
       )
@@ -105,9 +107,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, roles]);
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -116,12 +122,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setTimeout(() => updateLastLogin(session.user.id), 0);
           }
           
-          setTimeout(async () => {
-            const userRoles = await fetchUserRoles(session.user.id);
-            setRoles(userRoles);
-            // Check if admin is paused
-            await checkAdminActive(session.user.id, userRoles);
-          }, 0);
+          // Only fetch roles on sign in, not on token refresh or sign out
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            setTimeout(async () => {
+              if (!isMounted) return;
+              const userRoles = await fetchUserRoles(session.user.id);
+              if (!isMounted) return;
+              setRoles(userRoles);
+              await checkAdminActive(session.user.id, userRoles);
+            }, 0);
+          }
         } else {
           setRoles([]);
         }
@@ -132,11 +142,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         const userRoles = await fetchUserRoles(session.user.id);
+        if (!isMounted) return;
         setRoles(userRoles);
         await checkAdminActive(session.user.id, userRoles);
       }
@@ -144,7 +156,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [checkAdminActive]);
 
   const signUp = async (email: string, password: string, fullName?: string) => {
