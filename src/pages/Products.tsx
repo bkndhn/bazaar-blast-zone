@@ -1,19 +1,18 @@
 import { MainLayout } from '@/components/layout/MainLayout';
-import { ProductGrid } from '@/components/product/ProductGrid';
+import { HomeSearch } from '@/components/home/HomeSearch';
 import { useProducts } from '@/hooks/useProducts';
+import { useAllCategories } from '@/hooks/useCategories';
+
 
 export default function Products() {
   const { data: products, isLoading } = useProducts();
+  const { data: categories } = useAllCategories();
 
   return (
     <MainLayout>
-      <div className="p-4">
-        <h1 className="mb-4 text-xl font-semibold">All Products</h1>
-        <ProductGrid 
-          products={products} 
-          loading={isLoading}
-          emptyMessage="No products available yet. Check back soon!"
-        />
+      <div className="py-4 space-y-4">
+        <h1 className="text-xl font-semibold px-4">All Products</h1>
+        <HomeSearch products={products} categories={categories} isLoading={isLoading} />
       </div>
     </MainLayout>
   );

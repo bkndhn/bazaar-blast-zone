@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  User, 
-  Package, 
-  Heart, 
-  MapPin, 
-  CreditCard, 
-  HelpCircle, 
-  LogOut, 
+import {
+  User,
+  Package,
+  Heart,
+  MapPin,
+  CreditCard,
+  HelpCircle,
+  LogOut,
   ChevronRight,
   Settings,
   Store,
-  Shield
+  Shield,
+  FileText
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: MapPin, label: 'Addresses', href: '/addresses' },
   { icon: CreditCard, label: 'Payment Methods', href: '/payments' },
   { icon: HelpCircle, label: 'Help & Support', href: '/support' },
+  { icon: FileText, label: 'Terms & Conditions', href: '/terms' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
 

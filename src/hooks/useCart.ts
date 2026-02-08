@@ -15,6 +15,8 @@ export interface CartItem {
     price: number;
     compare_at_price: number | null;
     stock_quantity: number;
+    admin_id: string;
+    store_id: string;
     images: { image_url: string; is_primary: boolean }[];
     store: { name: string };
   };
@@ -38,6 +40,8 @@ export function useCart() {
             price,
             compare_at_price,
             stock_quantity,
+            admin_id,
+            store_id,
             images:product_images(image_url, is_primary),
             store:stores(name)
           )

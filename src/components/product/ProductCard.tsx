@@ -22,13 +22,13 @@ export function ProductCard({ product, className }: ProductCardProps) {
   const addToCart = useAddToCart();
   const { data: cart } = useCart();
   const { data: rating } = useProductRating(product.id);
-  
-  const primaryImage = product.images?.find(img => img.is_primary)?.image_url 
+
+  const primaryImage = product.images?.find(img => img.is_primary)?.image_url
     || product.images?.[0]?.image_url
     || '/placeholder.svg';
-  
-  const discount = product.compare_at_price 
-    ? Math.round((1 - product.price / product.compare_at_price) * 100) 
+
+  const discount = product.compare_at_price
+    ? Math.round((1 - product.price / product.compare_at_price) * 100)
     : 0;
 
   const isInCart = cart?.some(item => item.product_id === product.id);
@@ -77,12 +77,12 @@ export function ProductCard({ product, className }: ProductCardProps) {
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Use published URL for sharing
     const publishedOrigin = 'https://bazaar-blast-zone.lovable.app';
     const productUrl = `${publishedOrigin}/product/${product.id}`;
     const shareText = `Check out ${product.name} at ₹${product.price.toLocaleString('en-IN')}`;
-    
+
     try {
       if (navigator.share) {
         await navigator.share({
@@ -100,7 +100,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
   };
 
   return (
-    <Link 
+    <Link
       to={`/product/${product.id}`}
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md',
@@ -115,7 +115,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
         />
-        
+
         {/* Top Actions */}
         <div className="absolute right-2 top-2 flex flex-col gap-1">
           <Button
@@ -193,10 +193,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
         </div>
 
         {/* Qty & Unit */}
-        {extendedProduct.unit_value && extendedProduct.unit_type && (
+        {extendedProduct.unit_value && (
           <p className="mt-1 text-xs text-muted-foreground">
-            {extendedProduct.unit_value} {extendedProduct.unit_type}
-            {extendedProduct.unit_label ? ` (${extendedProduct.unit_label})` : ''}
+            {extendedProduct.unit_value} {extendedProduct.unit_label || extendedProduct.unit_type}
           </p>
         )}
 

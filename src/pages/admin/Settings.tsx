@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Store, Truck, Clock, Link as LinkIcon, Copy, Check } from 'lucide-react';
+import { Store, Truck, Clock, Link as LinkIcon, Copy, Check, CreditCard, FileText } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ImageUpload } from '@/components/ui/image-upload';
@@ -62,6 +63,13 @@ export default function AdminSettings() {
     delivery_outside_tamilnadu_days: 7,
     shipping_cost_within_tamilnadu: 40,
     shipping_cost_outside_tamilnadu: 80,
+    razorpay_key_id: '',
+    razorpay_key_secret: '',
+    is_payment_enabled: false,
+    shiprocket_email: '',
+    shiprocket_password: '',
+    is_shipping_integration_enabled: false,
+    terms_conditions: '',
   });
 
   // Update form when store data loads
@@ -85,6 +93,13 @@ export default function AdminSettings() {
         delivery_outside_tamilnadu_days: adminSettings.delivery_outside_tamilnadu_days || 7,
         shipping_cost_within_tamilnadu: adminSettings.shipping_cost_within_tamilnadu || 40,
         shipping_cost_outside_tamilnadu: adminSettings.shipping_cost_outside_tamilnadu || 80,
+        razorpay_key_id: adminSettings.razorpay_key_id || '',
+        razorpay_key_secret: adminSettings.razorpay_key_secret || '',
+        is_payment_enabled: adminSettings.is_payment_enabled || false,
+        shiprocket_email: adminSettings.shiprocket_email || '',
+        shiprocket_password: adminSettings.shiprocket_password || '',
+        is_shipping_integration_enabled: adminSettings.is_shipping_integration_enabled || false,
+        terms_conditions: adminSettings.terms_conditions || '',
       });
     }
   }, [adminSettings]);
@@ -98,7 +113,7 @@ export default function AdminSettings() {
         const { error } = await supabase
           .from('stores')
           .update({
-          name: formData.name,
+            name: formData.name,
             description: formData.description,
             logo_url: formData.logo_url || null,
             banner_url: formData.banner_url || null,
@@ -111,7 +126,7 @@ export default function AdminSettings() {
         const { error } = await supabase
           .from('stores')
           .insert({
-          admin_id: user.id,
+            admin_id: user.id,
             name: formData.name,
             description: formData.description,
             logo_url: formData.logo_url || null,
@@ -144,18 +159,29 @@ export default function AdminSettings() {
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
 
+      // Separate delivery and payment settings if needed, but here we save all to admin_settings
       const { error } = await supabase
         .from('admin_settings')
         .upsert({
           admin_id: user.id,
-          ...deliverySettings,
+          delivery_within_tamilnadu_days: deliverySettings.delivery_within_tamilnadu_days,
+          delivery_outside_tamilnadu_days: deliverySettings.delivery_outside_tamilnadu_days,
+          shipping_cost_within_tamilnadu: deliverySettings.shipping_cost_within_tamilnadu,
+          shipping_cost_outside_tamilnadu: deliverySettings.shipping_cost_outside_tamilnadu,
+          razorpay_key_id: deliverySettings.razorpay_key_id,
+          razorpay_key_secret: deliverySettings.razorpay_key_secret,
+          is_payment_enabled: deliverySettings.is_payment_enabled,
+          shiprocket_email: deliverySettings.shiprocket_email,
+          shiprocket_password: deliverySettings.shiprocket_password,
+          is_shipping_integration_enabled: deliverySettings.is_shipping_integration_enabled,
+          terms_conditions: deliverySettings.terms_conditions,
         }, { onConflict: 'admin_id' });
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
-      toast({ title: 'Delivery settings saved' });
+      toast({ title: 'Settings saved successfully' });
     },
     onError: (error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -199,8 +225,8 @@ export default function AdminSettings() {
               Store Information
             </CardTitle>
             <CardDescription>
-              {store 
-                ? 'Update your store details' 
+              {store
+                ? 'Update your store details'
                 : 'Set up your store to start selling'}
             </CardDescription>
           </CardHeader>
@@ -300,29 +326,28 @@ export default function AdminSettings() {
                     <div>
                       <p className="font-medium">Store Status</p>
                       <p className="text-sm text-muted-foreground">
-                        {store.is_active 
-                          ? 'Your store is active and visible to customers' 
+                        {store.is_active
+                          ? 'Your store is active and visible to customers'
                           : 'Your store is pending approval from Super Admin'}
                       </p>
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-sm font-medium ${
-                      store.is_active 
-                        ? 'bg-success/20 text-success' 
-                        : 'bg-warning/20 text-warning'
-                    }`}>
+                    <span className={`rounded-full px-3 py-1 text-sm font-medium ${store.is_active
+                      ? 'bg-success/20 text-success'
+                      : 'bg-warning/20 text-warning'
+                      }`}>
                       {store.is_active ? 'Active' : 'Pending'}
                     </span>
                   </div>
                 </div>
               )}
 
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <Button
+                type="submit"
+                className="w-full"
                 disabled={saveStore.isPending || uploadingLogo || uploadingBanner}
               >
-                {saveStore.isPending 
-                  ? 'Saving...' 
+                {saveStore.isPending
+                  ? 'Saving...'
                   : store ? 'Update Store' : 'Create Store'}
               </Button>
             </form>
@@ -414,12 +439,218 @@ export default function AdminSettings() {
                 These settings are used to calculate estimated delivery dates shown to customers.
               </p>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <Button
+                type="submit"
+                className="w-full"
                 disabled={saveDeliverySettings.isPending}
               >
                 {saveDeliverySettings.isPending ? 'Saving...' : 'Save Delivery Settings'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Payment Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Payment Settings
+            </CardTitle>
+            <CardDescription>
+              Configure Razorpay for online payments.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveDeliverySettings.mutate();
+              }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Enable Online Payments</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Allow customers to pay online via Razorpay/UPI
+                  </p>
+                </div>
+                <Switch
+                  checked={deliverySettings.is_payment_enabled}
+                  onCheckedChange={(checked) => setDeliverySettings({
+                    ...deliverySettings,
+                    is_payment_enabled: checked,
+                  })}
+                />
+              </div>
+
+              {deliverySettings.is_payment_enabled && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="key_id">Razorpay Key ID</Label>
+                      <Input
+                        id="key_id"
+                        value={deliverySettings.razorpay_key_id}
+                        onChange={(e) => setDeliverySettings({
+                          ...deliverySettings,
+                          razorpay_key_id: e.target.value,
+                        })}
+                        placeholder="rzp_test_..."
+                        type="password"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="key_secret">Razorpay Key Secret</Label>
+                      <Input
+                        id="key_secret"
+                        value={deliverySettings.razorpay_key_secret}
+                        onChange={(e) => setDeliverySettings({
+                          ...deliverySettings,
+                          razorpay_key_secret: e.target.value,
+                        })}
+                        placeholder="Secret key..."
+                        type="password"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Get these keys from your <a href="https://dashboard.razorpay.com/app/keys" target="_blank" rel="noreferrer" className="underline hover:text-primary">Razorpay Dashboard</a>.
+                  </p>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={saveDeliverySettings.isPending}
+              >
+                {saveDeliverySettings.isPending ? 'Saving...' : 'Save Payment Settings'}
+              </Button>
+            </form>
+        </Card>
+
+        {/* Shipping Integration Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Shipping Integration (Shiprocket)
+            </CardTitle>
+            <CardDescription>
+              Configure Shiprocket for automated order status updates.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveDeliverySettings.mutate();
+              }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Enable Shipping Integration</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically sync order status from Shiprocket
+                  </p>
+                </div>
+                <Switch
+                  checked={deliverySettings.is_shipping_integration_enabled}
+                  onCheckedChange={(checked) => setDeliverySettings({
+                    ...deliverySettings,
+                    is_shipping_integration_enabled: checked,
+                  })}
+                />
+              </div>
+
+              {deliverySettings.is_shipping_integration_enabled && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="shiprocket_email">Shiprocket Email</Label>
+                      <Input
+                        id="shiprocket_email"
+                        value={deliverySettings.shiprocket_email}
+                        onChange={(e) => setDeliverySettings({
+                          ...deliverySettings,
+                          shiprocket_email: e.target.value,
+                        })}
+                        placeholder="email@example.com"
+                        type="email"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="shiprocket_password">Shiprocket Password</Label>
+                      <Input
+                        id="shiprocket_password"
+                        value={deliverySettings.shiprocket_password}
+                        onChange={(e) => setDeliverySettings({
+                          ...deliverySettings,
+                          shiprocket_password: e.target.value,
+                        })}
+                        placeholder="Password"
+                        type="password"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter your Shiprocket login credentials used to access the API.
+                  </p>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={saveDeliverySettings.isPending}
+              >
+                {saveDeliverySettings.isPending ? 'Saving...' : 'Save Shipping Settings'}
+              </Button>
+            </form>
+        </Card>
+
+        {/* Terms and Conditions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Terms and Conditions
+            </CardTitle>
+            <CardDescription>
+              Set the terms and conditions for your store. These will be visible to customers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveDeliverySettings.mutate();
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="terms">Terms & Conditions Content</Label>
+                <Textarea
+                  id="terms"
+                  value={deliverySettings.terms_conditions}
+                  onChange={(e) => setDeliverySettings({
+                    ...deliverySettings,
+                    terms_conditions: e.target.value,
+                  })}
+                  placeholder="Enter your terms and conditions here..."
+                  rows={10}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={saveDeliverySettings.isPending}
+              >
+                {saveDeliverySettings.isPending ? 'Saving...' : 'Save Terms'}
               </Button>
             </form>
           </CardContent>

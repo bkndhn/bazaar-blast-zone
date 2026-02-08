@@ -31,12 +31,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
-      
+
       if (error) {
         console.error('Error fetching roles:', error);
         return [];
       }
-      
+
       return (data?.map(r => r.role) || []) as AppRole[];
     } catch (err) {
       console.error('Error fetching roles:', err);
@@ -58,14 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Check if admin is paused - if so, force sign out
   const checkAdminActive = useCallback(async (userId: string, userRoles: AppRole[]) => {
     if (!userRoles.includes('admin')) return true;
-    
+
     try {
       const { data } = await supabase
         .from('admin_accounts')
         .select('status')
         .eq('user_id', userId)
         .maybeSingle();
-      
+
       if (data?.status === 'paused') {
         // Use a flag to prevent re-triggering from onAuthStateChange
         setRoles([]);
@@ -100,7 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
@@ -108,20 +107,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
-        
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           if (event === 'SIGNED_IN') {
             setTimeout(() => updateLastLogin(session.user.id), 0);
           }
-          
+
           // Only fetch roles on sign in, not on token refresh or sign out
           if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
             setTimeout(async () => {
@@ -135,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setRoles([]);
         }
-        
+
         setLoading(false);
       }
     );
@@ -145,14 +144,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         const userRoles = await fetchUserRoles(session.user.id);
         if (!isMounted) return;
         setRoles(userRoles);
         await checkAdminActive(session.user.id, userRoles);
       }
-      
+
       setLoading(false);
     });
 

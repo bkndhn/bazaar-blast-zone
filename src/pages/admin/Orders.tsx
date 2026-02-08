@@ -27,28 +27,27 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-destructive/20 text-destructive',
 };
 
-const courierServices = [
-  { value: 'delhivery', label: 'Delhivery', trackingUrl: 'https://www.delhivery.com/track/package/' },
-  { value: 'professional', label: 'Professional Courier', trackingUrl: 'https://www.tpcindia.com/track.aspx?id=' },
-  { value: 'bluedart', label: 'BlueDart', trackingUrl: 'https://www.bluedart.com/tracking/' },
-  { value: 'dtdc', label: 'DTDC', trackingUrl: 'https://www.dtdc.in/tracking/tracking_results.asp?Ession_id=' },
-  { value: 'ecom', label: 'Ecom Express', trackingUrl: 'https://ecomexpress.in/tracking/?awb_field=' },
-  { value: 'xpressbees', label: 'XpressBees', trackingUrl: 'https://www.xpressbees.com/track?awbNo=' },
-  { value: 'other', label: 'Other', trackingUrl: '' },
-];
+{ value: 'delhivery', label: 'Delhivery', trackingUrl: 'https://www.delhivery.com/track/package/' },
+{ value: 'professional', label: 'Professional Courier', trackingUrl: 'https://www.tpcindia.com/track.aspx?id=' },
+{ value: 'bluedart', label: 'BlueDart', trackingUrl: 'https://www.bluedart.com/tracking/' },
+{ value: 'dtdc', label: 'DTDC', trackingUrl: 'https://www.dtdc.in/tracking/tracking_results.asp?Ession_id=' },
+{ value: 'ecom', label: 'Ecom Express', trackingUrl: 'https://ecomexpress.in/tracking/?awb_field=' },
+{ value: 'xpressbees', label: 'XpressBees', trackingUrl: 'https://www.xpressbees.com/track?awbNo=' },
+{ value: 'trackon', label: 'Trackon', trackingUrl: 'https://trackon.in/track?awb=' },
+{ value: 'other', label: 'Other', trackingUrl: '' },
 
 export default function AdminOrders() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [newOrderCount, setNewOrderCount] = useState(0);
-  const [updateDialog, setUpdateDialog] = useState<{ 
-    open: boolean; 
+  const [updateDialog, setUpdateDialog] = useState<{
+    open: boolean;
     order: any | null;
   }>({
     open: false,
     order: null,
   });
-  
+
   // Form state for update dialog
   const [updateForm, setUpdateForm] = useState({
     status: '',
@@ -102,9 +101,9 @@ export default function AdminOrders() {
       .channel('admin-orders-realtime')
       .on(
         'postgres_changes',
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
+        {
+          event: 'INSERT',
+          schema: 'public',
           table: 'orders',
           filter: `admin_id=eq.${user.id}`
         },
@@ -115,7 +114,7 @@ export default function AdminOrders() {
             description: `Order #${(payload.new as any).order_number} - ₹${Number((payload.new as any).total).toLocaleString('en-IN')}`,
           });
           refetch();
-          
+
           // Request notification permission and show
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('New Order Received!', {
@@ -127,9 +126,9 @@ export default function AdminOrders() {
       )
       .on(
         'postgres_changes',
-        { 
-          event: 'UPDATE', 
-          schema: 'public', 
+        {
+          event: 'UPDATE',
+          schema: 'public',
           table: 'orders',
           filter: `admin_id=eq.${user.id}`
         },
@@ -159,8 +158,8 @@ export default function AdminOrders() {
       estimated_delivery_date?: string;
     }) => {
       const courier = courierServices.find(c => c.value === data.courier_service);
-      const trackingUrl = courier && data.tracking_number 
-        ? courier.trackingUrl + data.tracking_number 
+      const trackingUrl = courier && data.tracking_number
+        ? courier.trackingUrl + data.tracking_number
         : null;
 
       const updateData: any = {
@@ -173,7 +172,7 @@ export default function AdminOrders() {
       if (data.courier_service) updateData.courier_service = data.courier_service;
       if (trackingUrl) updateData.courier_tracking_url = trackingUrl;
       if (data.estimated_delivery_date) updateData.estimated_delivery_date = data.estimated_delivery_date;
-      
+
       if (data.status === 'shipped' && !updateData.shipped_at) {
         updateData.shipped_at = new Date().toISOString();
       }
@@ -185,7 +184,7 @@ export default function AdminOrders() {
         .from('orders')
         .update(updateData)
         .eq('id', data.orderId);
-      
+
       if (error) throw error;
 
       // Add status history entry
@@ -210,13 +209,36 @@ export default function AdminOrders() {
     },
   });
 
+  const syncStatus = useMutation({
+    mutationFn: async (order: any) => {
+      const { data, error } = await supabase.functions.invoke('shipping-ops', {
+        body: {
+          action: 'sync_status',
+          orderId: order.id,
+          adminId: user?.id,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      toast({ title: 'Status Synced', description: data.message });
+    },
+    onError: (error) => {
+      toast({ title: 'Sync Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const handleOpenUpdate = (order: any) => {
     // Calculate default estimated delivery based on address
     const isTamilnadu = order.address?.state?.toLowerCase().includes('tamil');
-    const defaultDays = isTamilnadu 
+    const defaultDays = isTamilnadu
       ? (adminSettings?.delivery_within_tamilnadu_days || 3)
       : (adminSettings?.delivery_outside_tamilnadu_days || 7);
-    
+
     const defaultDate = order.estimated_delivery_date || format(addDays(new Date(), defaultDays), 'yyyy-MM-dd');
 
     setUpdateForm({
@@ -231,7 +253,7 @@ export default function AdminOrders() {
 
   const handleSubmitUpdate = () => {
     if (!updateDialog.order) return;
-    
+
     updateOrder.mutate({
       orderId: updateDialog.order.id,
       status: updateForm.status,
@@ -367,15 +389,26 @@ export default function AdminOrders() {
               )}
 
               {/* Actions */}
-              <div className="mt-4">
-                <Button 
-                  variant="outline" 
-                  className="gap-2"
+              <div className="mt-4 flex gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2 flex-1"
                   onClick={() => handleOpenUpdate(order)}
                 >
                   <Package className="h-4 w-4" />
                   Update Order
                 </Button>
+                {adminSettings?.is_shipping_integration_enabled && order.tracking_number && (
+                  <Button
+                    variant="secondary"
+                    className="gap-2 flex-1"
+                    onClick={() => syncStatus.mutate(order)}
+                    disabled={syncStatus.isPending}
+                  >
+                    <Truck className={`h-4 w-4 ${syncStatus.isPending ? 'animate-spin' : ''}`} />
+                    {syncStatus.isPending ? 'Syncing...' : 'Sync Status'}
+                  </Button>
+                )}
               </div>
             </div>
           ))}
@@ -383,8 +416,8 @@ export default function AdminOrders() {
       )}
 
       {/* Update Dialog */}
-      <Dialog 
-        open={updateDialog.open} 
+      <Dialog
+        open={updateDialog.open}
         onOpenChange={(open) => setUpdateDialog({ ...updateDialog, open })}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -466,13 +499,13 @@ export default function AdminOrders() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setUpdateDialog({ open: false, order: null })}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSubmitUpdate}
               disabled={updateOrder.isPending}
             >
