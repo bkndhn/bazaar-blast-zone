@@ -22,7 +22,7 @@ interface CustomerData {
   lastOrder: string | null;
   addresses: Array<{
     id: string;
-    name: string;
+    full_name: string;
     address_line1: string;
     address_line2: string | null;
     city: string;
