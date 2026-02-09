@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, Users, ShoppingCart, Calendar, Search, Phone, Mail, MapPin, ChevronDown, ChevronUp, IndianRupee } from 'lucide-react';
+import { Download, Users, ShoppingCart, Calendar, Search, Phone, Mail, MapPin, ChevronDown, ChevronUp, IndianRupee, FileSpreadsheet, Printer } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,25 +44,17 @@ export default function AdminCRM() {
     queryFn: async () => {
       if (!user) return [];
 
-      // Get unique customers from orders
       const { data: orders, error } = await supabase
         .from('orders')
-        .select(`
-          user_id,
-          created_at,
-          total
-        `)
+        .select('user_id, created_at, total')
         .eq('admin_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Get unique user IDs
       const userIds = [...new Set(orders?.map(o => o.user_id).filter(Boolean))];
-
       if (userIds.length === 0) return [];
 
-      // Fetch profiles for these users
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -70,13 +62,11 @@ export default function AdminCRM() {
 
       if (profileError) throw profileError;
 
-      // Fetch addresses for these users
       const { data: addresses } = await supabase
         .from('addresses')
         .select('*')
         .in('user_id', userIds);
 
-      // Combine data
       const customerData: CustomerData[] = profiles?.map(profile => {
         const customerOrders = orders?.filter(o => o.user_id === profile.user_id) || [];
         const totalSpent = customerOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
@@ -105,10 +95,7 @@ export default function AdminCRM() {
 
       const { data, error } = await supabase
         .from('orders')
-        .select(`
-          *,
-          items:order_items(*)
-        `)
+        .select(`*, items:order_items(*)`)
         .eq('admin_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -124,62 +111,102 @@ export default function AdminCRM() {
     c.phone?.includes(searchTerm)
   );
 
-  const downloadCustomersCSV = () => {
-    if (!customers?.length) {
-      toast({ title: 'No data to export', variant: 'destructive' });
-      return;
+  // ---- EXCEL EXPORT (TSV with auto-fit columns) ----
+  const exportExcel = (type: 'customers' | 'orders') => {
+    if (type === 'customers') {
+      if (!customers?.length) { toast({ title: 'No data to export', variant: 'destructive' }); return; }
+      const headers = ['Name', 'Email', 'Phone', 'Address', 'City', 'State', 'Pincode', 'Orders', 'Total Spent (₹)', 'Last Order', 'Last Login'];
+      const rows = customers.map(c => {
+        const addr = c.addresses?.find(a => a.is_default) || c.addresses?.[0];
+        return [
+          c.full_name || '', c.email || '', c.phone || '',
+          addr ? `${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}` : '',
+          addr?.city || '', addr?.state || '', addr?.postal_code || '',
+          c.orderCount, c.totalSpent.toFixed(2),
+          c.lastOrder ? format(new Date(c.lastOrder), 'yyyy-MM-dd') : '',
+          c.last_login ? format(new Date(c.last_login), 'yyyy-MM-dd HH:mm') : 'Never',
+        ];
+      });
+      downloadTSV(headers, rows, 'customers.xls');
+    } else {
+      if (!allOrders?.length) { toast({ title: 'No data to export', variant: 'destructive' }); return; }
+      const headers = ['Order #', 'Date', 'Status', 'Payment Method', 'Payment Status', 'Subtotal (₹)', 'Shipping (₹)', 'Total (₹)', 'Items', 'Tracking #'];
+      const rows = allOrders.map(o => [
+        o.order_number,
+        format(new Date(o.created_at), 'yyyy-MM-dd HH:mm'),
+        o.status, o.payment_method || 'cod', o.payment_status || 'pending',
+        o.subtotal, o.shipping_cost, o.total,
+        o.items?.length || 0, o.tracking_number || '',
+      ]);
+      downloadTSV(headers, rows, 'orders.xls');
     }
+    toast({ title: `${type === 'customers' ? 'Customers' : 'Orders'} exported as Excel` });
+  };
 
-    const headers = ['Name', 'Email', 'Phone', 'Address', 'City', 'Orders', 'Total Spent', 'Last Order', 'Last Login'];
-    const rows = customers.map(c => {
-      const defaultAddress = c.addresses?.find(a => a.is_default) || c.addresses?.[0];
-      return [
-        c.full_name || '',
-        c.email || '',
-        c.phone || '',
-        defaultAddress ? `${defaultAddress.address_line1}${defaultAddress.address_line2 ? ', ' + defaultAddress.address_line2 : ''}` : '',
-        defaultAddress?.city || '',
-        c.orderCount,
-        c.totalSpent.toFixed(2),
-        c.lastOrder ? format(new Date(c.lastOrder), 'yyyy-MM-dd') : '',
-        c.last_login ? format(new Date(c.last_login), 'yyyy-MM-dd HH:mm') : 'Never',
-      ];
+  const downloadTSV = (headers: string[], rows: any[][], filename: string) => {
+    // Using HTML table format for .xls so Excel auto-fits columns
+    let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
+    html += '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>';
+    html += '<x:Name>Sheet1</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>';
+    html += '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>';
+    html += '<table border="1"><thead><tr>';
+    headers.forEach(h => { html += `<th style="font-weight:bold;background:#f0f0f0;white-space:nowrap">${h}</th>`; });
+    html += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      html += '<tr>';
+      row.forEach(cell => { html += `<td style="white-space:nowrap">${cell ?? ''}</td>`; });
+      html += '</tr>';
     });
+    html += '</tbody></table></body></html>';
 
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-    downloadCSV(csv, 'customers.csv');
-    toast({ title: 'Customers exported successfully' });
-  };
-
-  const downloadOrdersCSV = () => {
-    if (!allOrders?.length) {
-      toast({ title: 'No data to export', variant: 'destructive' });
-      return;
-    }
-
-    const headers = ['Order Number', 'Date', 'Status', 'Subtotal', 'Shipping', 'Total', 'Items Count'];
-    const rows = allOrders.map(o => [
-      o.order_number,
-      format(new Date(o.created_at), 'yyyy-MM-dd HH:mm'),
-      o.status,
-      o.subtotal,
-      o.shipping_cost,
-      o.total,
-      o.items?.length || 0,
-    ]);
-
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    downloadCSV(csv, 'orders.csv');
-    toast({ title: 'Orders exported successfully' });
-  };
-
-  const downloadCSV = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  // ---- PDF / PRINT ----
+  const printReport = (type: 'customers' | 'orders') => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) { toast({ title: 'Please allow popups', variant: 'destructive' }); return; }
+
+    let tableHtml = '';
+    if (type === 'customers') {
+      if (!customers?.length) { toast({ title: 'No data', variant: 'destructive' }); return; }
+      tableHtml = `<table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>City</th><th>Orders</th><th>Total (₹)</th><th>Last Order</th></tr></thead><tbody>`;
+      customers.forEach(c => {
+        const addr = c.addresses?.find(a => a.is_default) || c.addresses?.[0];
+        tableHtml += `<tr><td>${c.full_name || '-'}</td><td>${c.email || '-'}</td><td>${c.phone || '-'}</td><td>${addr?.city || '-'}</td><td>${c.orderCount}</td><td>${c.totalSpent.toLocaleString('en-IN')}</td><td>${c.lastOrder ? format(new Date(c.lastOrder), 'dd MMM yyyy') : '-'}</td></tr>`;
+      });
+      tableHtml += '</tbody></table>';
+    } else {
+      if (!allOrders?.length) { toast({ title: 'No data', variant: 'destructive' }); return; }
+      tableHtml = `<table><thead><tr><th>Order #</th><th>Date</th><th>Status</th><th>Payment</th><th>Subtotal</th><th>Shipping</th><th>Total</th></tr></thead><tbody>`;
+      allOrders.forEach(o => {
+        tableHtml += `<tr><td>${o.order_number}</td><td>${format(new Date(o.created_at), 'dd MMM yyyy')}</td><td>${o.status}</td><td>${o.payment_method || 'cod'}</td><td>₹${o.subtotal}</td><td>₹${o.shipping_cost}</td><td>₹${o.total}</td></tr>`;
+      });
+      tableHtml += '</tbody></table>';
+    }
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${type === 'customers' ? 'Customers Report' : 'Orders Report'}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 16px; font-size: 11px; }
+        h1 { font-size: 16px; margin-bottom: 8px; }
+        p { font-size: 10px; color: #666; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; white-space: nowrap; }
+        th { background: #f5f5f5; font-weight: bold; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+      <h1>${type === 'customers' ? 'Customer Report' : 'Orders Report'}</h1>
+      <p>Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}</p>
+      ${tableHtml}
+    </body></html>`);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 300);
   };
 
   const toggleExpand = (customerId: string) => {
@@ -226,13 +253,21 @@ export default function AdminCRM() {
 
       {/* Export Buttons */}
       <div className="mb-4 flex flex-wrap gap-2">
-        <Button onClick={downloadCustomersCSV} size="sm" className="gap-1 text-xs">
-          <Download className="h-3 w-3" />
-          Customers CSV
+        <Button onClick={() => exportExcel('customers')} size="sm" className="gap-1 text-xs">
+          <FileSpreadsheet className="h-3 w-3" />
+          Customers Excel
         </Button>
-        <Button onClick={downloadOrdersCSV} variant="outline" size="sm" className="gap-1 text-xs">
-          <Download className="h-3 w-3" />
-          Orders CSV
+        <Button onClick={() => exportExcel('orders')} variant="outline" size="sm" className="gap-1 text-xs">
+          <FileSpreadsheet className="h-3 w-3" />
+          Orders Excel
+        </Button>
+        <Button onClick={() => printReport('customers')} variant="outline" size="sm" className="gap-1 text-xs">
+          <Printer className="h-3 w-3" />
+          Customers PDF
+        </Button>
+        <Button onClick={() => printReport('orders')} variant="outline" size="sm" className="gap-1 text-xs">
+          <Printer className="h-3 w-3" />
+          Orders PDF
         </Button>
       </div>
 
@@ -264,7 +299,6 @@ export default function AdminCRM() {
 
             return (
               <div key={customer.id} className="rounded-lg border border-border bg-card overflow-hidden">
-                {/* Main Row */}
                 <button
                   onClick={() => toggleExpand(customer.id)}
                   className="w-full p-3 text-left flex items-center gap-3"
@@ -285,7 +319,6 @@ export default function AdminCRM() {
                   {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
 
-                {/* Expanded Details */}
                 {isExpanded && (
                   <div className="border-t border-border p-3 space-y-2 bg-muted/30">
                     {customer.phone && (
