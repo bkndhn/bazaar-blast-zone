@@ -104,7 +104,10 @@ export type Database = {
           is_shipping_integration_enabled: boolean | null
           online_payment_enabled: boolean | null
           payment_required_before_ship: boolean | null
+          phonepe_enabled: boolean | null
           phonepe_merchant_id: string | null
+          phonepe_salt_index: string | null
+          phonepe_salt_key: string | null
           razorpay_key_id: string | null
           razorpay_key_secret: string | null
           shipping_cost_outside_tamilnadu: number | null
@@ -127,7 +130,10 @@ export type Database = {
           is_shipping_integration_enabled?: boolean | null
           online_payment_enabled?: boolean | null
           payment_required_before_ship?: boolean | null
+          phonepe_enabled?: boolean | null
           phonepe_merchant_id?: string | null
+          phonepe_salt_index?: string | null
+          phonepe_salt_key?: string | null
           razorpay_key_id?: string | null
           razorpay_key_secret?: string | null
           shipping_cost_outside_tamilnadu?: number | null
@@ -150,7 +156,10 @@ export type Database = {
           is_shipping_integration_enabled?: boolean | null
           online_payment_enabled?: boolean | null
           payment_required_before_ship?: boolean | null
+          phonepe_enabled?: boolean | null
           phonepe_merchant_id?: string | null
+          phonepe_salt_index?: string | null
+          phonepe_salt_key?: string | null
           razorpay_key_id?: string | null
           razorpay_key_secret?: string | null
           shipping_cost_outside_tamilnadu?: number | null

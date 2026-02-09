@@ -67,6 +67,12 @@ export default function AdminSettings() {
     razorpay_key_id: '',
     razorpay_key_secret: '',
     is_payment_enabled: false,
+    phonepe_merchant_id: '',
+    phonepe_salt_key: '',
+    phonepe_salt_index: '1',
+    phonepe_enabled: false,
+    cod_enabled: true,
+    online_payment_enabled: false,
     shiprocket_email: '',
     shiprocket_password: '',
     is_shipping_integration_enabled: false,
@@ -160,6 +166,12 @@ export default function AdminSettings() {
         razorpay_key_id: adminSettings.razorpay_key_id || '',
         razorpay_key_secret: adminSettings.razorpay_key_secret || '',
         is_payment_enabled: adminSettings.is_payment_enabled || false,
+        phonepe_merchant_id: adminSettings.phonepe_merchant_id || '',
+        phonepe_salt_key: (adminSettings as any).phonepe_salt_key || '',
+        phonepe_salt_index: (adminSettings as any).phonepe_salt_index || '1',
+        phonepe_enabled: (adminSettings as any).phonepe_enabled || false,
+        cod_enabled: adminSettings.cod_enabled ?? true,
+        online_payment_enabled: adminSettings.online_payment_enabled ?? false,
         shiprocket_email: adminSettings.shiprocket_email || '',
         shiprocket_password: adminSettings.shiprocket_password || '',
         is_shipping_integration_enabled: adminSettings.is_shipping_integration_enabled || false,
@@ -236,12 +248,18 @@ export default function AdminSettings() {
           razorpay_key_id: deliverySettings.razorpay_key_id,
           razorpay_key_secret: deliverySettings.razorpay_key_secret,
           is_payment_enabled: deliverySettings.is_payment_enabled,
+          phonepe_merchant_id: deliverySettings.phonepe_merchant_id,
+          phonepe_salt_key: deliverySettings.phonepe_salt_key,
+          phonepe_salt_index: deliverySettings.phonepe_salt_index,
+          phonepe_enabled: deliverySettings.phonepe_enabled,
+          cod_enabled: deliverySettings.cod_enabled,
+          online_payment_enabled: deliverySettings.online_payment_enabled,
           shiprocket_email: deliverySettings.shiprocket_email,
           shiprocket_password: deliverySettings.shiprocket_password,
           is_shipping_integration_enabled: deliverySettings.is_shipping_integration_enabled,
           terms_conditions: deliverySettings.terms_conditions,
           theme_color_hsl: deliverySettings.theme_color_hsl,
-        }, { onConflict: 'admin_id' });
+        } as any, { onConflict: 'admin_id' });
 
       if (error) throw error;
     },
@@ -624,7 +642,7 @@ export default function AdminSettings() {
               Payment Settings
             </CardTitle>
             <CardDescription>
-              Configure Razorpay for online payments.
+              Configure payment methods for your store.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -635,55 +653,109 @@ export default function AdminSettings() {
               }}
               className="space-y-4"
             >
+              {/* COD Toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Cash on Delivery</Label>
+                  <p className="text-sm text-muted-foreground">Allow COD payments</p>
+                </div>
+                <Switch
+                  checked={deliverySettings.cod_enabled}
+                  onCheckedChange={(checked) => setDeliverySettings({ ...deliverySettings, cod_enabled: checked })}
+                />
+              </div>
+
+              {/* Online Payment Toggle */}
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <Label className="text-base">Enable Online Payments</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Allow customers to pay online via Razorpay/UPI
-                  </p>
+                  <p className="text-sm text-muted-foreground">Allow customers to pay online</p>
                 </div>
                 <Switch
                   checked={deliverySettings.is_payment_enabled}
-                  onCheckedChange={(checked) => setDeliverySettings({
-                    ...deliverySettings,
-                    is_payment_enabled: checked,
-                  })}
+                  onCheckedChange={(checked) => setDeliverySettings({ ...deliverySettings, is_payment_enabled: checked })}
                 />
               </div>
 
               {deliverySettings.is_payment_enabled && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="key_id">Razorpay Key ID</Label>
-                      <Input
-                        id="key_id"
-                        value={deliverySettings.razorpay_key_id}
-                        onChange={(e) => setDeliverySettings({
-                          ...deliverySettings,
-                          razorpay_key_id: e.target.value,
-                        })}
-                        placeholder="rzp_test_..."
-                        type="password"
-                      />
+                <div className="space-y-6 animate-in fade-in slide-in-from-top-4">
+                  {/* Razorpay Section */}
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <h4 className="font-medium text-sm">Razorpay</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="key_id">Key ID</Label>
+                        <Input
+                          id="key_id"
+                          value={deliverySettings.razorpay_key_id}
+                          onChange={(e) => setDeliverySettings({ ...deliverySettings, razorpay_key_id: e.target.value })}
+                          placeholder="rzp_test_..."
+                          type="password"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="key_secret">Key Secret</Label>
+                        <Input
+                          id="key_secret"
+                          value={deliverySettings.razorpay_key_secret}
+                          onChange={(e) => setDeliverySettings({ ...deliverySettings, razorpay_key_secret: e.target.value })}
+                          placeholder="Secret key..."
+                          type="password"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="key_secret">Razorpay Key Secret</Label>
-                      <Input
-                        id="key_secret"
-                        value={deliverySettings.razorpay_key_secret}
-                        onChange={(e) => setDeliverySettings({
-                          ...deliverySettings,
-                          razorpay_key_secret: e.target.value,
-                        })}
-                        placeholder="Secret key..."
-                        type="password"
-                      />
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Get keys from <a href="https://dashboard.razorpay.com/app/keys" target="_blank" rel="noreferrer" className="underline hover:text-primary">Razorpay Dashboard</a>.
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Get these keys from your <a href="https://dashboard.razorpay.com/app/keys" target="_blank" rel="noreferrer" className="underline hover:text-primary">Razorpay Dashboard</a>.
-                  </p>
+
+                  {/* PhonePe Section */}
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">PhonePe Business UPI</h4>
+                      <Switch
+                        checked={deliverySettings.phonepe_enabled}
+                        onCheckedChange={(checked) => setDeliverySettings({ ...deliverySettings, phonepe_enabled: checked })}
+                      />
+                    </div>
+                    {deliverySettings.phonepe_enabled && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="phonepe_merchant_id">Merchant ID</Label>
+                          <Input
+                            id="phonepe_merchant_id"
+                            value={deliverySettings.phonepe_merchant_id}
+                            onChange={(e) => setDeliverySettings({ ...deliverySettings, phonepe_merchant_id: e.target.value })}
+                            placeholder="MERCHANTID..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="phonepe_salt_key">Salt Key</Label>
+                            <Input
+                              id="phonepe_salt_key"
+                              value={deliverySettings.phonepe_salt_key}
+                              onChange={(e) => setDeliverySettings({ ...deliverySettings, phonepe_salt_key: e.target.value })}
+                              placeholder="Salt key..."
+                              type="password"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="phonepe_salt_index">Salt Index</Label>
+                            <Input
+                              id="phonepe_salt_index"
+                              value={deliverySettings.phonepe_salt_index}
+                              onChange={(e) => setDeliverySettings({ ...deliverySettings, phonepe_salt_index: e.target.value })}
+                              placeholder="1"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Get credentials from <a href="https://www.phonepe.com/business/" target="_blank" rel="noreferrer" className="underline hover:text-primary">PhonePe Business Dashboard</a>.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
