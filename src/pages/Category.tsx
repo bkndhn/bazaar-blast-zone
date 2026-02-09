@@ -1,25 +1,70 @@
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProductGrid } from '@/components/product/ProductGrid';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategory } from '@/hooks/useCategories';
 import { useStore } from '@/contexts/StoreContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+
+const LAST_STORE_KEY = 'bazaar_last_store';
 
 export default function Category() {
   const { slug } = useParams<{ slug: string }>();
-  const { adminId, isStoreRoute } = useStore();
+  const { adminId, isStoreRoute, storeSlug } = useStore();
+  const { user, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
   const { data: category, isLoading: categoryLoading } = useCategory(slug || '');
 
-  // Filter products by both category AND adminId for proper isolation
   const { data: products, isLoading: productsLoading } = useProducts({
     categoryId: category?.id,
     adminId: adminId ?? undefined
   });
+
+  // Save current store to localStorage when on a store route
+  useEffect(() => {
+    if (storeSlug) {
+      localStorage.setItem(LAST_STORE_KEY, storeSlug);
+    }
+  }, [storeSlug]);
+
+  // Redirect logic for non-store routes
+  useEffect(() => {
+    if (!authLoading && !isStoreRoute) {
+      const lastStore = localStorage.getItem(LAST_STORE_KEY);
+
+      if (user) {
+        if (isSuperAdmin) {
+          navigate('/super-admin');
+          return;
+        }
+        if (isAdmin) {
+          navigate('/admin/categories');
+          return;
+        }
+      }
+
+      if (lastStore && slug) {
+        navigate(`/s/${lastStore}/category/${slug}`);
+        return;
+      }
+    }
+  }, [user, isAdmin, isSuperAdmin, authLoading, isStoreRoute, navigate, slug]);
+
+  // Show loading
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      </MainLayout>
+    );
+  }
 
   // If not on a store route and no admin context, show store finder
   if (!isStoreRoute && !adminId) {
@@ -32,7 +77,7 @@ export default function Category() {
             Please access a specific store to browse categories.
           </p>
           <Button asChild className="mt-4">
-            <Link to="/">Go Home</Link>
+            <Link to="/">Find a Store</Link>
           </Button>
         </div>
       </MainLayout>
