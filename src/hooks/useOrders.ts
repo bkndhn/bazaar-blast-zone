@@ -20,6 +20,7 @@ export interface Order {
 
 export interface OrderItem {
   id: string;
+  product_id: string | null;
   product_name: string;
   product_image: string | null;
   quantity: number;
@@ -40,7 +41,7 @@ export function useOrders() {
         .select(`
           *,
           store:stores(name),
-          items:order_items(id, product_name, product_image, quantity, unit_price, total_price)
+          items:order_items(id, product_id, product_name, product_image, quantity, unit_price, total_price)
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -65,7 +66,7 @@ export function useOrder(orderId: string) {
         .select(`
           *,
           store:stores(name),
-          items:order_items(id, product_name, product_image, quantity, unit_price, total_price),
+          items:order_items(id, product_id, product_name, product_image, quantity, unit_price, total_price),
           address:addresses(*)
         `)
         .eq('id', orderId)
