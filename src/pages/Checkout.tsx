@@ -53,7 +53,9 @@ export default function Checkout() {
     enabled: !!cart?.length,
   });
 
-  const isOnlinePaymentAvailable = adminSettings?.some(s => s.is_payment_enabled);
+    const isOnlinePaymentAvailable = adminSettings?.some(s => s.is_payment_enabled);
+    const isPhonePeAvailable = adminSettings?.some(s => (s as any).phonepe_enabled && (s as any).phonepe_merchant_id);
+    const isRazorpayAvailable = adminSettings?.some(s => s.razorpay_key_id && s.razorpay_key_secret);
 
 
   if (!user) {
@@ -160,11 +162,59 @@ export default function Checkout() {
         // Check if this admin has payment enabled and user selected card
         const adminPaymentSettings = adminSettings?.find(s => s.admin_id === adminId);
         const processPayment = paymentMethod === 'card' && adminPaymentSettings?.is_payment_enabled;
+        const usePhonePe = processPayment && (adminPaymentSettings as any)?.phonepe_enabled && (adminPaymentSettings as any)?.phonepe_merchant_id;
+        const useRazorpay = processPayment && !usePhonePe && adminPaymentSettings?.razorpay_key_id;
 
         let paymentSuccess = false;
         let paymentId = null;
 
-        if (processPayment) {
+        if (usePhonePe) {
+          try {
+            const callbackUrl = `${window.location.origin}/orders`;
+            const { data: phonePeData, error: phonePeError } = await supabase.functions.invoke('payment-ops', {
+              body: {
+                action: 'phonepe_initiate',
+                amount: orderTotal,
+                admin_id: adminId,
+                order_number: orderNumber,
+                callback_url: callbackUrl,
+              }
+            });
+
+            if (phonePeError || !phonePeData?.redirect_url) {
+              throw new Error(phonePeError?.message || 'Failed to initiate PhonePe payment');
+            }
+
+            // Store transaction ID for verification after redirect
+            localStorage.setItem('phonepe_txn', JSON.stringify({
+              merchant_transaction_id: phonePeData.merchant_transaction_id,
+              admin_id: adminId,
+              order_number: orderNumber,
+              order_total: orderTotal,
+              order_subtotal: orderSubtotal,
+              order_shipping: orderShipping,
+              store_id: storeId,
+              address_id: selectedAddress,
+              items: items.map(item => ({
+                product_id: item.product_id,
+                admin_id: adminId,
+                product_name: item.product?.name || 'Unknown Product',
+                product_image: item.product?.images?.[0]?.image_url || null,
+                quantity: item.quantity,
+                unit_price: item.product?.price || 0,
+                total_price: (item.product?.price || 0) * item.quantity,
+              })),
+            }));
+
+            // Redirect to PhonePe payment page
+            window.location.href = phonePeData.redirect_url;
+            return; // Exit - will redirect
+          } catch (err) {
+            console.error('PhonePe payment failed:', err);
+            toast({ title: 'PhonePe payment failed', description: (err as Error).message, variant: 'destructive' });
+            throw err;
+          }
+        } else if (useRazorpay) {
           try {
             // 1. Create Order on Razorpay via Edge Function
             const { data: orderData, error: orderError } = await supabase.functions.invoke('payment-ops', {
@@ -184,11 +234,10 @@ export default function Checkout() {
                 key: orderData.key_id,
                 amount: Math.round(orderTotal * 100),
                 currency: 'INR',
-                name: 'Bazaar Blast Zone', // TODO: Use actual store name
+                name: 'Bazaar Blast Zone',
                 description: `Order ${orderNumber}`,
                 order_id: orderData.order_id,
                 handler: async function (response: any) {
-                  // 3. Verify Payment
                   const { data: verifyData, error: verifyError } = await supabase.functions.invoke('payment-ops', {
                     body: {
                       action: 'verify_payment',
@@ -224,14 +273,10 @@ export default function Checkout() {
 
               const rzp = new (window as any).Razorpay(options);
               rzp.open();
-            }); // End Promise logic
-
+            });
           } catch (err) {
             console.error('Payment failed:', err);
-            toast({ title: 'Payment failed for one of the orders', description: 'Proceeding with Cash on Delivery for this item.', variant: 'destructive' });
-            // Fallback to COD or abort?
-            // For now, if payment fails, we abort this specific order creation or fallback to COD?
-            // Lets abort to be safe and let user retry.
+            toast({ title: 'Payment failed', description: (err as Error).message, variant: 'destructive' });
             throw err;
           }
         }
@@ -433,7 +478,9 @@ export default function Checkout() {
                   <div>
                     <p className="font-medium">Online Payment (UPI / Card)</p>
                     <p className="text-sm text-muted-foreground">
-                      {isOnlinePaymentAvailable ? 'Secure payment via Razorpay' : 'Not available for these items'}
+                      {isOnlinePaymentAvailable
+                        ? isPhonePeAvailable ? 'Secure payment via PhonePe' : 'Secure payment via Razorpay'
+                        : 'Not available for these items'}
                     </p>
                   </div>
                 </Label>
