@@ -295,8 +295,10 @@ export default function OrderDetail() {
                 />
                 <div className="flex-1">
                   <p className="font-medium line-clamp-1">{item.product_name}</p>
-                  <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                  <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    ₹{item.unit_price.toLocaleString('en-IN')} × {item.quantity}
+                  </p>
+                  <div className="flex items-center justify-between mt-1">
                     <p className="text-sm font-medium">₹{item.total_price.toLocaleString('en-IN')}</p>
                     {order.status === 'delivered' && item.product_id && (
                       <Link
@@ -310,6 +312,31 @@ export default function OrderDetail() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Payment Info */}
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h2 className="font-semibold mb-3">Payment Info</h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Method</span>
+              <span className="capitalize font-medium">
+                {orderData.payment_method === 'online' ? '💳 Online' : '💵 Cash on Delivery'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Payment Status</span>
+              <span className={`capitalize font-medium ${orderData.payment_status === 'paid' ? 'text-success' : 'text-warning'}`}>
+                {orderData.payment_status || 'pending'}
+              </span>
+            </div>
+            {orderData.payment_id && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Transaction ID</span>
+                <span className="font-mono text-xs">{orderData.payment_id}</span>
+              </div>
+            )}
           </div>
         </div>
 
