@@ -105,7 +105,7 @@ export function BannerCarousel({ adminId }: { adminId?: string }) {
 
   return (
     <section 
-      className="relative mx-4 my-4 overflow-hidden rounded-xl max-h-[180px] md:max-h-[280px]"
+      className="relative mx-4 my-4 overflow-hidden rounded-xl"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -175,7 +175,7 @@ function BannerSlide({ banner }: { banner: Banner }) {
     <img
       src={banner.image_url!}
       alt={banner.title || 'Banner'}
-      className="h-full w-full object-cover max-h-[180px] md:max-h-[280px]"
+      className="w-full object-contain h-[140px] sm:h-[180px] md:h-[260px] lg:h-[320px] xl:h-[380px]"
     />
   ) : (
     <div 

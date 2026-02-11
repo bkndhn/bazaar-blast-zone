@@ -97,8 +97,10 @@ export type Database = {
           admin_id: string
           cod_enabled: boolean | null
           created_at: string
+          cutting_charges: number | null
           delivery_outside_tamilnadu_days: number | null
           delivery_within_tamilnadu_days: number | null
+          extra_delivery_charges: number | null
           id: string
           is_payment_enabled: boolean | null
           is_shipping_integration_enabled: boolean | null
@@ -110,10 +112,16 @@ export type Database = {
           phonepe_salt_key: string | null
           razorpay_key_id: string | null
           razorpay_key_secret: string | null
+          self_pickup_enabled: boolean | null
+          service_area_enabled: boolean | null
+          service_area_lat: number | null
+          service_area_lng: number | null
+          service_area_radius_km: number | null
           shipping_cost_outside_tamilnadu: number | null
           shipping_cost_within_tamilnadu: number | null
           shiprocket_email: string | null
           shiprocket_password: string | null
+          shop_type: string | null
           terms_conditions: string | null
           theme_color_hsl: string | null
           ticket_window_days: number | null
@@ -123,8 +131,10 @@ export type Database = {
           admin_id: string
           cod_enabled?: boolean | null
           created_at?: string
+          cutting_charges?: number | null
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
+          extra_delivery_charges?: number | null
           id?: string
           is_payment_enabled?: boolean | null
           is_shipping_integration_enabled?: boolean | null
@@ -136,10 +146,16 @@ export type Database = {
           phonepe_salt_key?: string | null
           razorpay_key_id?: string | null
           razorpay_key_secret?: string | null
+          self_pickup_enabled?: boolean | null
+          service_area_enabled?: boolean | null
+          service_area_lat?: number | null
+          service_area_lng?: number | null
+          service_area_radius_km?: number | null
           shipping_cost_outside_tamilnadu?: number | null
           shipping_cost_within_tamilnadu?: number | null
           shiprocket_email?: string | null
           shiprocket_password?: string | null
+          shop_type?: string | null
           terms_conditions?: string | null
           theme_color_hsl?: string | null
           ticket_window_days?: number | null
@@ -149,8 +165,10 @@ export type Database = {
           admin_id?: string
           cod_enabled?: boolean | null
           created_at?: string
+          cutting_charges?: number | null
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
+          extra_delivery_charges?: number | null
           id?: string
           is_payment_enabled?: boolean | null
           is_shipping_integration_enabled?: boolean | null
@@ -162,10 +180,16 @@ export type Database = {
           phonepe_salt_key?: string | null
           razorpay_key_id?: string | null
           razorpay_key_secret?: string | null
+          self_pickup_enabled?: boolean | null
+          service_area_enabled?: boolean | null
+          service_area_lat?: number | null
+          service_area_lng?: number | null
+          service_area_radius_km?: number | null
           shipping_cost_outside_tamilnadu?: number | null
           shipping_cost_within_tamilnadu?: number | null
           shiprocket_email?: string | null
           shiprocket_password?: string | null
+          shop_type?: string | null
           terms_conditions?: string | null
           theme_color_hsl?: string | null
           ticket_window_days?: number | null
