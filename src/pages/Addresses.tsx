@@ -232,6 +232,26 @@ function AddressForm({ address, onSuccess }: { address?: Address | null; onSucce
     });
   };
 
+  const shareLiveLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+          setFormData({ ...formData, location_link: mapsLink });
+          toast({ title: 'Location captured!', description: 'Your live location has been saved.' });
+        },
+        () => {
+          toast({ title: 'Location access denied', description: 'Please enable location permission.', variant: 'destructive' });
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      toast({ title: 'Geolocation not supported', variant: 'destructive' });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -343,23 +363,50 @@ function AddressForm({ address, onSuccess }: { address?: Address | null; onSucce
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Location Link (Optional)</Label>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-xs"
-            onClick={openLocationPicker}
-          >
-            <Navigation className="h-3 w-3" />
-            Open Maps
-          </Button>
+          <Label>Delivery Location</Label>
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={shareLiveLocation}
+            >
+              <Navigation className="h-3 w-3" />
+              Share Live Location
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={openLocationPicker}
+            >
+              <MapPin className="h-3 w-3" />
+              Open Maps
+            </Button>
+          </div>
         </div>
         <Input
           value={formData.location_link}
           onChange={(e) => setFormData({ ...formData, location_link: e.target.value })}
-          placeholder="Paste Google Maps share link here"
+          placeholder="Paste Google Maps link or use Share Live Location"
         />
+        {formData.location_link && (
+          <a
+            href={formData.location_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <MapPin className="h-3 w-3" />
+            Preview on Google Maps
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Share your delivery location so the delivery person can navigate to you directly.
+        </p>
       </div>
 
       <div className="flex items-center gap-2">

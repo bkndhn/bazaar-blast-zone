@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Store, Truck, Clock, Link as LinkIcon, Copy, Check, CreditCard, FileText, UtensilsCrossed, ShoppingBag } from 'lucide-react';
+import { Store, Truck, Clock, Link as LinkIcon, Copy, Check, CreditCard, FileText, UtensilsCrossed, ShoppingBag, MapPin } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +83,10 @@ export default function AdminSettings() {
     self_pickup_enabled: false,
     cutting_charges: 0,
     extra_delivery_charges: 0,
+    service_area_enabled: false,
+    service_area_lat: 0,
+    service_area_lng: 0,
+    service_area_radius_km: 10,
   });
 
   // Helper to convert Hex to HSL (approximate)
@@ -186,6 +190,10 @@ export default function AdminSettings() {
         self_pickup_enabled: (adminSettings as any).self_pickup_enabled || false,
         cutting_charges: (adminSettings as any).cutting_charges || 0,
         extra_delivery_charges: (adminSettings as any).extra_delivery_charges || 0,
+        service_area_enabled: (adminSettings as any).service_area_enabled || false,
+        service_area_lat: (adminSettings as any).service_area_lat || 0,
+        service_area_lng: (adminSettings as any).service_area_lng || 0,
+        service_area_radius_km: (adminSettings as any).service_area_radius_km || 10,
       });
     }
   }, [adminSettings]);
@@ -272,6 +280,10 @@ export default function AdminSettings() {
           self_pickup_enabled: deliverySettings.self_pickup_enabled,
           cutting_charges: deliverySettings.cutting_charges,
           extra_delivery_charges: deliverySettings.extra_delivery_charges,
+          service_area_enabled: deliverySettings.service_area_enabled,
+          service_area_lat: deliverySettings.service_area_lat,
+          service_area_lng: deliverySettings.service_area_lng,
+          service_area_radius_km: deliverySettings.service_area_radius_km,
         } as any, { onConflict: 'admin_id' });
 
       if (error) throw error;
@@ -946,6 +958,100 @@ export default function AdminSettings() {
                 disabled={saveDeliverySettings.isPending}
               >
                 {saveDeliverySettings.isPending ? 'Saving...' : 'Save Shipping Settings'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Service Area Restriction */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Service Area
+            </CardTitle>
+            <CardDescription>
+              Restrict orders to customers within a specific area. Customers outside this area won't be able to place orders.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => { e.preventDefault(); saveDeliverySettings.mutate(); }} className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Enable Service Area</Label>
+                  <p className="text-sm text-muted-foreground">Only serve customers within your delivery radius</p>
+                </div>
+                <Switch
+                  checked={deliverySettings.service_area_enabled}
+                  onCheckedChange={(checked) => setDeliverySettings({ ...deliverySettings, service_area_enabled: checked })}
+                />
+              </div>
+
+              {deliverySettings.service_area_enabled && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Latitude</Label>
+                      <Input
+                        type="number"
+                        step="0.000001"
+                        value={deliverySettings.service_area_lat}
+                        onChange={(e) => setDeliverySettings({ ...deliverySettings, service_area_lat: parseFloat(e.target.value) || 0 })}
+                        placeholder="e.g., 13.0827"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Longitude</Label>
+                      <Input
+                        type="number"
+                        step="0.000001"
+                        value={deliverySettings.service_area_lng}
+                        onChange={(e) => setDeliverySettings({ ...deliverySettings, service_area_lng: parseFloat(e.target.value) || 0 })}
+                        placeholder="e.g., 80.2707"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Service Radius (km)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="500"
+                      value={deliverySettings.service_area_radius_km}
+                      onChange={(e) => setDeliverySettings({ ...deliverySettings, service_area_radius_km: parseFloat(e.target.value) || 10 })}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setDeliverySettings({
+                              ...deliverySettings,
+                              service_area_lat: parseFloat(pos.coords.latitude.toFixed(6)),
+                              service_area_lng: parseFloat(pos.coords.longitude.toFixed(6)),
+                            });
+                            toast({ title: 'Location captured!', description: `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}` });
+                          },
+                          () => toast({ title: 'Location access denied', variant: 'destructive' })
+                        );
+                      }
+                    }}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Use My Current Location
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Set your shop's location and delivery radius. Customers outside this area will see a "Not available" message.
+                  </p>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={saveDeliverySettings.isPending}>
+                {saveDeliverySettings.isPending ? 'Saving...' : 'Save Service Area Settings'}
               </Button>
             </form>
           </CardContent>

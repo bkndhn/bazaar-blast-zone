@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
-import { ArrowLeft, MapPin, CreditCard, Plus, Check, Truck } from 'lucide-react';
+import { ArrowLeft, MapPin, CreditCard, Plus, Check, Truck, ShoppingBag, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -25,7 +25,9 @@ export default function Checkout() {
   const [step, setStep] = useState<CheckoutStep>('address');
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('cod');
+  const [deliveryMethod, setDeliveryMethod] = useState<string>('delivery');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [serviceAreaError, setServiceAreaError] = useState<string | null>(null);
 
   // Set default address if available
   useState(() => {
@@ -53,9 +55,60 @@ export default function Checkout() {
     enabled: !!cart?.length,
   });
 
-    const isOnlinePaymentAvailable = adminSettings?.some(s => s.is_payment_enabled);
-    const isPhonePeAvailable = adminSettings?.some(s => (s as any).phonepe_enabled && (s as any).phonepe_merchant_id);
-    const isRazorpayAvailable = adminSettings?.some(s => s.razorpay_key_id && s.razorpay_key_secret);
+  const isOnlinePaymentAvailable = adminSettings?.some(s => s.is_payment_enabled);
+  const isPhonePeAvailable = adminSettings?.some(s => (s as any).phonepe_enabled && (s as any).phonepe_merchant_id);
+  const isRazorpayAvailable = adminSettings?.some(s => s.razorpay_key_id && s.razorpay_key_secret);
+  const isSelfPickupAvailable = adminSettings?.some(s => (s as any).self_pickup_enabled);
+
+  // Service area check
+  const checkServiceArea = () => {
+    if (!adminSettings?.length || !addresses?.length || !selectedAddress) return;
+    const hasServiceArea = adminSettings.some(s => (s as any).service_area_enabled);
+    if (!hasServiceArea) {
+      setServiceAreaError(null);
+      return;
+    }
+
+    const address = addresses.find(a => a.id === selectedAddress);
+    if (!address || !(address as any).location_link) {
+      // Can't verify without location link
+      setServiceAreaError(null);
+      return;
+    }
+
+    // For each admin with service area, check distance
+    for (const settings of adminSettings) {
+      if (!(settings as any).service_area_enabled) continue;
+      const lat = (settings as any).service_area_lat;
+      const lng = (settings as any).service_area_lng;
+      const radius = (settings as any).service_area_radius_km;
+      if (!lat || !lng || !radius) continue;
+
+      // Try to extract lat/lng from Google Maps link
+      const locationLink = (address as any).location_link || '';
+      const coordMatch = locationLink.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+      if (!coordMatch) continue;
+
+      const userLat = parseFloat(coordMatch[1]);
+      const userLng = parseFloat(coordMatch[2]);
+
+      // Haversine distance
+      const R = 6371;
+      const dLat = (userLat - lat) * Math.PI / 180;
+      const dLon = (userLng - lng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat * Math.PI / 180) * Math.cos(userLat * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c;
+
+      if (distance > radius) {
+        setServiceAreaError(`We are not available in your area yet. We currently serve within ${radius}km. Your location is approximately ${Math.round(distance)}km away. We'll come to your area soon!`);
+        return;
+      }
+    }
+    setServiceAreaError(null);
+  };
 
 
   if (!user) {
@@ -116,8 +169,15 @@ export default function Checkout() {
     return totalShipping;
   };
 
-  const shippingCost = calculateShipping();
-  const total = subtotal + shippingCost;
+  const shippingCost = deliveryMethod === 'self_pickup' ? 0 : calculateShipping();
+  
+  // Calculate extra charges for food shops
+  const extraCharges = adminSettings?.reduce((total, s) => {
+    return total + ((s as any).cutting_charges || 0) + ((s as any).extra_delivery_charges || 0);
+  }, 0) || 0;
+  const foodExtraCharges = adminSettings?.some(s => (s as any).shop_type === 'food') ? extraCharges : 0;
+  
+  const total = subtotal + shippingCost + foodExtraCharges;
 
   const handlePlaceOrder = async () => {
     if (!selectedAddress) {
@@ -152,11 +212,15 @@ export default function Checkout() {
         const address = addresses?.find(a => a.id === selectedAddress);
         const isTamilNadu = ['tamil nadu', 'tamilnadu', 'tn'].includes(address?.state?.toLowerCase()?.trim() || '');
 
-        const orderShipping = settings
+        const orderShipping = deliveryMethod === 'self_pickup' ? 0 : (settings
           ? (isTamilNadu ? (settings.shipping_cost_within_tamilnadu || 0) : (settings.shipping_cost_outside_tamilnadu || 0))
-          : 0; // Fallback?
+          : 0);
 
-        const orderTotal = orderSubtotal + orderShipping;
+        const adminExtraCharges = (settings as any)?.shop_type === 'food'
+          ? ((settings as any)?.cutting_charges || 0) + ((settings as any)?.extra_delivery_charges || 0)
+          : 0;
+
+        const orderTotal = orderSubtotal + orderShipping + adminExtraCharges;
         const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
         // Check if this admin has payment enabled and user selected card
@@ -292,7 +356,7 @@ export default function Checkout() {
             order_number: orderNumber,
             status: paymentSuccess ? 'processing' : 'pending', // 'processing' implies paid/confirmed
             payment_status: paymentSuccess ? 'paid' : 'pending',
-            payment_method: processPayment && paymentSuccess ? 'online' : 'cod',
+            payment_method: deliveryMethod === 'self_pickup' ? 'self_pickup' : (processPayment && paymentSuccess ? 'online' : 'cod'),
             payment_id: paymentId,
             subtotal: orderSubtotal,
             shipping_cost: orderShipping,
@@ -429,10 +493,25 @@ export default function Checkout() {
               </RadioGroup>
             )}
 
+            {serviceAreaError && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-destructive">Service Area Unavailable</p>
+                    <p className="text-sm text-muted-foreground mt-1">{serviceAreaError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Button
               className="w-full"
-              onClick={() => setStep('payment')}
-              disabled={!selectedAddress}
+              onClick={() => {
+                checkServiceArea();
+                if (!serviceAreaError) setStep('payment');
+              }}
+              disabled={!selectedAddress || !!serviceAreaError}
             >
               Continue to Payment
             </Button>
@@ -442,6 +521,47 @@ export default function Checkout() {
         {/* Payment Step */}
         {step === 'payment' && (
           <div className="space-y-4">
+            {/* Delivery Method */}
+            {isSelfPickupAvailable && (
+              <>
+                <h2 className="font-semibold">Delivery Method</h2>
+                <RadioGroup value={deliveryMethod} onValueChange={setDeliveryMethod}>
+                  <div
+                    className={cn(
+                      'relative rounded-lg border p-4 cursor-pointer',
+                      deliveryMethod === 'delivery' ? 'border-primary bg-primary/5' : 'border-border'
+                    )}
+                    onClick={() => setDeliveryMethod('delivery')}
+                  >
+                    <RadioGroupItem value="delivery" id="delivery_method" className="absolute right-4 top-4" />
+                    <Label htmlFor="delivery_method" className="flex cursor-pointer items-center gap-3">
+                      <Truck className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Home Delivery</p>
+                        <p className="text-sm text-muted-foreground">Delivered to your address</p>
+                      </div>
+                    </Label>
+                  </div>
+                  <div
+                    className={cn(
+                      'relative rounded-lg border p-4 cursor-pointer',
+                      deliveryMethod === 'self_pickup' ? 'border-primary bg-primary/5' : 'border-border'
+                    )}
+                    onClick={() => setDeliveryMethod('self_pickup')}
+                  >
+                    <RadioGroupItem value="self_pickup" id="self_pickup_method" className="absolute right-4 top-4" />
+                    <Label htmlFor="self_pickup_method" className="flex cursor-pointer items-center gap-3">
+                      <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Self Pickup</p>
+                        <p className="text-sm text-muted-foreground">Pick up from store • No delivery charges</p>
+                      </div>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </>
+            )}
+
             <h2 className="font-semibold">Select Payment Method</h2>
 
             <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -461,8 +581,6 @@ export default function Checkout() {
                   </div>
                 </Label>
               </div>
-
-
 
               <div
                 className={cn(
@@ -550,12 +668,20 @@ export default function Checkout() {
                 </div>
               )}
 
-              {/* Payment Method */}
-              <div className="rounded-lg border border-border p-4">
-                <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
-                <p className="mt-1 font-medium">
-                  {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card / UPI'}
-                </p>
+              {/* Delivery & Payment Method */}
+              <div className="rounded-lg border border-border p-4 space-y-2">
+                {deliveryMethod === 'self_pickup' && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Delivery Method</p>
+                    <p className="mt-1 font-medium text-emerald-600">🏪 Self Pickup</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
+                  <p className="mt-1 font-medium">
+                    {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card / UPI'}
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-3">
@@ -585,9 +711,15 @@ export default function Checkout() {
           <div className="flex justify-between">
             <span className="text-muted-foreground">Shipping</span>
             <span className={shippingCost === 0 ? 'text-success' : ''}>
-              {shippingCost === 0 ? 'FREE' : `₹${shippingCost}`}
+              {deliveryMethod === 'self_pickup' ? 'Self Pickup' : shippingCost === 0 ? 'FREE' : `₹${shippingCost}`}
             </span>
           </div>
+          {foodExtraCharges > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Processing Charges</span>
+              <span>₹{foodExtraCharges}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
             <span>Total</span>
             <span>₹{total.toLocaleString('en-IN')}</span>
