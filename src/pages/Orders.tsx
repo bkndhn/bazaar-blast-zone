@@ -11,9 +11,24 @@ const statusColors: Record<string, string> = {
   pending: 'bg-warning/20 text-warning',
   confirmed: 'bg-primary/20 text-primary',
   processing: 'bg-primary/20 text-primary',
+  preparing: 'bg-orange-500/20 text-orange-600',
+  ready_for_pickup: 'bg-emerald-500/20 text-emerald-600',
   shipped: 'bg-accent/20 text-accent-foreground',
+  out_for_delivery: 'bg-cyan-500/20 text-cyan-600',
   delivered: 'bg-success/20 text-success',
   cancelled: 'bg-destructive/20 text-destructive',
+};
+
+const statusLabels: Record<string, string> = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  processing: 'Processing',
+  preparing: 'Preparing',
+  ready_for_pickup: 'Ready for Pickup',
+  shipped: 'Shipped',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
 };
 
 export default function Orders() {
@@ -96,7 +111,7 @@ export default function Orders() {
                   'rounded-full px-2 py-1 text-xs font-medium capitalize',
                   statusColors[order.status] || 'bg-muted text-muted-foreground'
                 )}>
-                  {order.status}
+                  {statusLabels[order.status] || order.status}
                 </span>
               </div>
 

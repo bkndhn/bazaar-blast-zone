@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Store, Truck, Clock, Link as LinkIcon, Copy, Check, CreditCard, FileText } from 'lucide-react';
+import { Store, Truck, Clock, Link as LinkIcon, Copy, Check, CreditCard, FileText, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { compressImage } from '@/lib/imageCompression';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export default function AdminSettings() {
   const { user } = useAuth();
@@ -78,6 +79,10 @@ export default function AdminSettings() {
     is_shipping_integration_enabled: false,
     terms_conditions: '',
     theme_color_hsl: '217 91% 60%',
+    shop_type: 'general',
+    self_pickup_enabled: false,
+    cutting_charges: 0,
+    extra_delivery_charges: 0,
   });
 
   // Helper to convert Hex to HSL (approximate)
@@ -177,6 +182,10 @@ export default function AdminSettings() {
         is_shipping_integration_enabled: adminSettings.is_shipping_integration_enabled || false,
         terms_conditions: adminSettings.terms_conditions || '',
         theme_color_hsl: (adminSettings as any).theme_color_hsl || '217 91% 60%',
+        shop_type: (adminSettings as any).shop_type || 'general',
+        self_pickup_enabled: (adminSettings as any).self_pickup_enabled || false,
+        cutting_charges: (adminSettings as any).cutting_charges || 0,
+        extra_delivery_charges: (adminSettings as any).extra_delivery_charges || 0,
       });
     }
   }, [adminSettings]);
@@ -259,6 +268,10 @@ export default function AdminSettings() {
           is_shipping_integration_enabled: deliverySettings.is_shipping_integration_enabled,
           terms_conditions: deliverySettings.terms_conditions,
           theme_color_hsl: deliverySettings.theme_color_hsl,
+          shop_type: deliverySettings.shop_type,
+          self_pickup_enabled: deliverySettings.self_pickup_enabled,
+          cutting_charges: deliverySettings.cutting_charges,
+          extra_delivery_charges: deliverySettings.extra_delivery_charges,
         } as any, { onConflict: 'admin_id' });
 
       if (error) throw error;
@@ -316,6 +329,92 @@ export default function AdminSettings() {
   return (
     <AdminLayout title="Settings">
       <div className="max-w-2xl space-y-6">
+
+        {/* Shop Type */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5" />
+              Shop Type
+            </CardTitle>
+            <CardDescription>
+              Choose your business type to customize the order flow for your customers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => { e.preventDefault(); saveDeliverySettings.mutate(); }} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { value: 'general', label: 'General Store', desc: 'E-commerce, retail, clothing etc.', icon: ShoppingBag },
+                  { value: 'food', label: 'Food / Restaurant', desc: 'Meat shop, hotel, fish shop etc.', icon: UtensilsCrossed },
+                ].map((opt) => {
+                  const Icon = opt.icon;
+                  const isSelected = deliverySettings.shop_type === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setDeliverySettings({ ...deliverySettings, shop_type: opt.value })}
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-colors text-center',
+                        isSelected ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'
+                      )}
+                    >
+                      <Icon className={cn('h-6 w-6', isSelected ? 'text-primary' : 'text-muted-foreground')} />
+                      <span className={cn('text-sm font-medium', isSelected ? 'text-primary' : 'text-muted-foreground')}>{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Self Pickup</Label>
+                    <p className="text-sm text-muted-foreground">Allow customers to pick up orders themselves</p>
+                  </div>
+                  <Switch
+                    checked={deliverySettings.self_pickup_enabled}
+                    onCheckedChange={(checked) => setDeliverySettings({ ...deliverySettings, self_pickup_enabled: checked })}
+                  />
+                </div>
+
+                {deliverySettings.shop_type === 'food' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Cutting / Processing Charges (₹)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={deliverySettings.cutting_charges}
+                          onChange={(e) => setDeliverySettings({ ...deliverySettings, cutting_charges: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Extra Delivery Charges (₹)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={deliverySettings.extra_delivery_charges}
+                          onChange={(e) => setDeliverySettings({ ...deliverySettings, extra_delivery_charges: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      These charges will be applied per order for food/meat shop orders.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={saveDeliverySettings.isPending}>
+                {saveDeliverySettings.isPending ? 'Saving...' : 'Save Shop Settings'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Style & Theme */}
         <Card>
