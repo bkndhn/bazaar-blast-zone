@@ -23,6 +23,7 @@ export default function ProductDetail() {
   const isInWishlist = useIsInWishlist(id!);
   
   const [quantity, setQuantity] = useState(1);
+  const [customWeight, setCustomWeight] = useState<number | null>(null);
   const [currentImage, setCurrentImage] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -77,8 +78,17 @@ export default function ProductDetail() {
   const isInCart = cart?.some(item => item.product_id === product.id);
   const extendedProduct = product as any;
   const unitLabel = extendedProduct.unit_label || 'pc';
+  const unitType = extendedProduct.unit_type || '';
+  const unitValue = extendedProduct.unit_value || 0;
   const minQty = extendedProduct.min_quantity || 1;
   const maxQty = Math.min(extendedProduct.max_quantity || 10, product.stock_quantity);
+
+  // Weight-based pricing for food shops (kg, g, etc.)
+  const isWeightBased = ['kg', 'g', 'l', 'ml'].includes(unitType?.toLowerCase());
+  const baseWeight = unitValue || 1; // e.g., 1 (kg)
+  const pricePerUnit = product.price / baseWeight; // price per 1 kg/g/l/ml
+  const selectedWeight = customWeight ?? baseWeight;
+  const calculatedPrice = isWeightBased ? pricePerUnit * selectedWeight : product.price * quantity;
 
   const handleShare = async () => {
     const publishedOrigin = 'https://bazaar-blast-zone.lovable.app';
@@ -110,7 +120,7 @@ export default function ProductDetail() {
       navigate('/auth', { state: { returnTo: `/product/${product.id}` } });
       return;
     }
-    addToCart.mutate({ productId: product.id, quantity });
+    addToCart.mutate({ productId: product.id, quantity: isWeightBased ? 1 : quantity });
   };
 
   const handleBuyNow = () => {
@@ -300,35 +310,98 @@ export default function ProductDetail() {
           )}
         </div>
 
-        {/* Quantity Selector */}
+        {/* Quantity / Weight Selector */}
         {product.stock_quantity > 0 && (
-          <div className="mt-4 flex items-center gap-4">
-            <span className="text-sm font-medium">Quantity ({unitLabel}):</span>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setQuantity(Math.max(minQty, quantity - 1))}
-                disabled={quantity <= minQty}
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-              <span className="w-8 text-center font-medium">{quantity}</span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
-                disabled={quantity >= maxQty}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              Total: ₹{(product.price * quantity).toLocaleString('en-IN')}
-            </span>
-          </div>
+          <>
+            {isWeightBased ? (
+              <div className="mt-4 space-y-3">
+                <span className="text-sm font-medium">
+                  Select Weight ({unitType}):
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  Base: {baseWeight}{unitType} = ₹{product.price.toLocaleString('en-IN')}
+                </p>
+                {/* Quick weight presets */}
+                <div className="flex flex-wrap gap-2">
+                  {(() => {
+                    const presets = unitType?.toLowerCase() === 'kg'
+                      ? [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5]
+                      : unitType?.toLowerCase() === 'g'
+                        ? [100, 200, 250, 500, 750, 1000]
+                        : unitType?.toLowerCase() === 'l'
+                          ? [0.25, 0.5, 1, 2, 5]
+                          : [50, 100, 200, 500, 1000];
+                    return presets.map((w) => (
+                      <button
+                        key={w}
+                        onClick={() => setCustomWeight(w)}
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                          selectedWeight === w
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border hover:bg-muted'
+                        )}
+                      >
+                        {w}{unitType}
+                      </button>
+                    ));
+                  })()}
+                </div>
+                {/* Custom weight input */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Custom:</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={selectedWeight}
+                    onChange={(e) => setCustomWeight(parseFloat(e.target.value) || 0)}
+                    className="w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                  />
+                  <span className="text-sm text-muted-foreground">{unitType}</span>
+                </div>
+                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Calculated Price:</span>
+                    <span className="text-lg font-bold text-primary">
+                      ₹{Math.round(calculatedPrice).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedWeight}{unitType} × ₹{pricePerUnit.toFixed(2)}/{unitType}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 flex items-center gap-4">
+                <span className="text-sm font-medium">Quantity ({unitLabel}):</span>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setQuantity(Math.max(minQty, quantity - 1))}
+                    disabled={quantity <= minQty}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-8 text-center font-medium">{quantity}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
+                    disabled={quantity >= maxQty}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  Total: ₹{(product.price * quantity).toLocaleString('en-IN')}
+                </span>
+              </div>
+            )}
+          </>
         )}
 
         {/* Description */}

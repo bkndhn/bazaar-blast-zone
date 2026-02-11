@@ -1,22 +1,33 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, MapPin, Phone, Star, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, MapPin, Phone, Star, MessageSquare, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useOrder } from '@/hooks/useOrders';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-const statusSteps = [
+const GENERAL_STATUS_STEPS = [
   { key: 'pending', label: 'Order Placed', icon: Package },
   { key: 'confirmed', label: 'Confirmed', icon: CheckCircle },
+  { key: 'processing', label: 'Processing', icon: Package },
   { key: 'shipped', label: 'Shipped', icon: Truck },
+  { key: 'out_for_delivery', label: 'Out for Delivery', icon: Truck },
+  { key: 'delivered', label: 'Delivered', icon: CheckCircle },
+];
+
+const FOOD_STATUS_STEPS = [
+  { key: 'pending', label: 'Order Placed', icon: Package },
+  { key: 'confirmed', label: 'Confirmed', icon: CheckCircle },
+  { key: 'preparing', label: 'Preparing', icon: Clock },
+  { key: 'ready_for_pickup', label: 'Ready for Pickup', icon: Package },
   { key: 'out_for_delivery', label: 'Out for Delivery', icon: Truck },
   { key: 'delivered', label: 'Delivered', icon: CheckCircle },
 ];
@@ -31,6 +42,21 @@ export default function OrderDetail() {
   const [comment, setComment] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
+
+  // Determine which status steps to show based on admin shop type
+  const orderAdminId = (order as any)?.admin_id;
+  const { data: adminSettingsForOrder } = useQuery({
+    queryKey: ['admin-settings-order', orderAdminId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('admin_settings')
+        .select('shop_type')
+        .eq('admin_id', orderAdminId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!orderAdminId,
+  });
 
   // Fetch status history
   useEffect(() => {
@@ -141,8 +167,9 @@ export default function OrderDetail() {
     );
   }
 
-  const currentStatusIndex = statusSteps.findIndex(s => s.key === order.status);
   const orderData = order as any;
+  const statusSteps = (adminSettingsForOrder as any)?.shop_type === 'food' ? FOOD_STATUS_STEPS : GENERAL_STATUS_STEPS;
+  const currentStatusIndex = statusSteps.findIndex(s => s.key === order.status);
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -362,6 +389,20 @@ export default function OrderDetail() {
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">{orderData.address.phone}</span>
               </div>
+              {orderData.address.location_link && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 gap-2"
+                  asChild
+                >
+                  <a href={orderData.address.location_link} target="_blank" rel="noopener noreferrer">
+                    <MapPin className="h-4 w-4" />
+                    Navigate to Location
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
         )}
