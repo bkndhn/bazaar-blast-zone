@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
-import { ArrowLeft, MapPin, CreditCard, Plus, Check, Truck, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, MapPin, CreditCard, Plus, Check, Truck, ShoppingBag, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,16 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
+
+// Tamil Nadu pincode ranges: 600xxx - 643xxx
+const isTamilNaduPincode = (pincode: string) => {
+  const pin = parseInt(pincode);
+  return pin >= 600000 && pin <= 643999;
+};
+
+const isTamilNaduState = (state: string) => {
+  return ['tamil nadu', 'tamilnadu', 'tn'].includes(state?.toLowerCase()?.trim() || '');
+};
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -43,7 +53,6 @@ export default function Checkout() {
       const adminIds = [...new Set(cart.map(item => (item.product as any)?.admin_id).filter(Boolean))];
       if (!adminIds.length) return [];
 
-
       const { data, error } = await supabase
         .from('admin_settings')
         .select('*')
@@ -64,19 +73,11 @@ export default function Checkout() {
   const checkServiceArea = () => {
     if (!adminSettings?.length || !addresses?.length || !selectedAddress) return;
     const hasServiceArea = adminSettings.some(s => (s as any).service_area_enabled);
-    if (!hasServiceArea) {
-      setServiceAreaError(null);
-      return;
-    }
+    if (!hasServiceArea) { setServiceAreaError(null); return; }
 
     const address = addresses.find(a => a.id === selectedAddress);
-    if (!address || !(address as any).location_link) {
-      // Can't verify without location link
-      setServiceAreaError(null);
-      return;
-    }
+    if (!address || !(address as any).location_link) { setServiceAreaError(null); return; }
 
-    // For each admin with service area, check distance
     for (const settings of adminSettings) {
       if (!(settings as any).service_area_enabled) continue;
       const lat = (settings as any).service_area_lat;
@@ -84,7 +85,6 @@ export default function Checkout() {
       const radius = (settings as any).service_area_radius_km;
       if (!lat || !lng || !radius) continue;
 
-      // Try to extract lat/lng from Google Maps link
       const locationLink = (address as any).location_link || '';
       const coordMatch = locationLink.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
       if (!coordMatch) continue;
@@ -92,7 +92,6 @@ export default function Checkout() {
       const userLat = parseFloat(coordMatch[1]);
       const userLng = parseFloat(coordMatch[2]);
 
-      // Haversine distance
       const R = 6371;
       const dLat = (userLat - lat) * Math.PI / 180;
       const dLon = (userLng - lng) * Math.PI / 180;
@@ -103,37 +102,26 @@ export default function Checkout() {
       const distance = R * c;
 
       if (distance > radius) {
-        setServiceAreaError(`We are not available in your area yet. We currently serve within ${radius}km. Your location is approximately ${Math.round(distance)}km away. We'll come to your area soon!`);
+        setServiceAreaError(`We are not available in your area yet. We currently serve within ${radius}km. Your location is approximately ${Math.round(distance)}km away.`);
         return;
       }
     }
     setServiceAreaError(null);
   };
 
+  if (!user) { navigate('/auth'); return null; }
+  if (!cart?.length) { navigate('/cart'); return null; }
 
-  if (!user) {
-    navigate('/auth');
-    return null;
-  }
+  const subtotal = cart.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
+  
+  const selectedAddr = addresses?.find(a => a.id === selectedAddress);
+  const isTN = selectedAddr 
+    ? (isTamilNaduState(selectedAddr.state) || isTamilNaduPincode(selectedAddr.postal_code))
+    : false;
 
-  if (!cart?.length) {
-    navigate('/cart');
-    return null;
-  }
-
-  const subtotal = cart.reduce(
-    (sum, item) => sum + (item.product?.price || 0) * item.quantity,
-    0
-  );
   const calculateShipping = () => {
-    if (!cart?.length || !addresses?.length || !selectedAddress || !adminSettings) return 0;
+    if (!cart?.length || !selectedAddress || !adminSettings) return 0;
 
-    const address = addresses.find(a => a.id === selectedAddress);
-    if (!address) return 0;
-
-    const isTamilNadu = ['tamil nadu', 'tamilnadu', 'tn'].includes(address.state?.toLowerCase()?.trim() || '');
-
-    // Group items by admin
     const itemsByAdmin = cart.reduce((acc, item) => {
       const adminId = (item.product as any)?.admin_id;
       if (!adminId) return acc;
@@ -146,24 +134,17 @@ export default function Checkout() {
 
     Object.entries(itemsByAdmin).forEach(([adminId, items]) => {
       const settings = adminSettings.find(s => s.admin_id === adminId);
-
-      // Calculate subtotal for this admin
       const adminSubtotal = items.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
 
-      // Free shipping over 499 per store (optional logic, kept for consistency if desired, or remove if strictly per settings)
-      // For now, adhering strictly to settings as requested.
+      const shippingCost = settings
+        ? (isTN ? (settings.shipping_cost_within_tamilnadu || 0) : (settings.shipping_cost_outside_tamilnadu || 0))
+        : 49;
 
-      const cost = settings
-        ? (isTamilNadu ? (settings.shipping_cost_within_tamilnadu || 0) : (settings.shipping_cost_outside_tamilnadu || 0))
-        : 49; // Fallback to default if no settings found
+      // Check free delivery threshold from admin settings
+      const freeAbove = (settings as any)?.free_delivery_above || 0;
+      const isFreeDelivery = freeAbove > 0 && adminSubtotal >= freeAbove;
 
-      const finalCost = adminSubtotal > 499 ? 0 : cost;
-      // Note: User asked for "40 at backend", implying they set it. 
-      // If the user wants FREE shipping above a certain amount, that logic should likely be in admin settings too.
-      // For now, I'll keep the >499 free rule as it seems to be a global default in the app, 
-      // BUT I will use the dynamic cost for < 499.
-
-      totalShipping += finalCost;
+      totalShipping += isFreeDelivery ? 0 : shippingCost;
     });
 
     return totalShipping;
@@ -171,13 +152,28 @@ export default function Checkout() {
 
   const shippingCost = deliveryMethod === 'self_pickup' ? 0 : calculateShipping();
   
-  // Calculate extra charges for food shops
   const extraCharges = adminSettings?.reduce((total, s) => {
     return total + ((s as any).cutting_charges || 0) + ((s as any).extra_delivery_charges || 0);
   }, 0) || 0;
   const foodExtraCharges = adminSettings?.some(s => (s as any).shop_type === 'food') ? extraCharges : 0;
   
   const total = subtotal + shippingCost + foodExtraCharges;
+
+  // Estimated delivery calculation
+  const getEstimatedDelivery = () => {
+    if (!adminSettings?.length) return null;
+    const days = adminSettings.reduce((max, s) => {
+      const d = isTN 
+        ? (s.delivery_within_tamilnadu_days || 3)
+        : (s.delivery_outside_tamilnadu_days || 7);
+      return Math.max(max, d);
+    }, 0);
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return { days, date };
+  };
+
+  const estimatedDelivery = deliveryMethod === 'self_pickup' ? null : getEstimatedDelivery();
 
   const handlePlaceOrder = async () => {
     if (!selectedAddress) {
@@ -187,34 +183,27 @@ export default function Checkout() {
 
     setIsPlacingOrder(true);
     try {
-      // Group cart items by store/admin
       const itemsByAdmin = cart.reduce((acc, item) => {
         const adminId = (item.product as any)?.admin_id;
         const storeId = (item.product as any)?.store_id;
         if (!adminId) return acc;
-
-        if (!acc[adminId]) {
-          acc[adminId] = { storeId, items: [] };
-        }
+        if (!acc[adminId]) acc[adminId] = { storeId, items: [] };
         acc[adminId].items.push(item);
         return acc;
       }, {} as Record<string, { storeId: string; items: typeof cart }>);
 
-      // Create orders for each store
       for (const [adminId, { storeId, items }] of Object.entries(itemsByAdmin)) {
-        const orderSubtotal = items.reduce(
-          (sum, item) => sum + (item.product?.price || 0) * item.quantity,
-          0
-        );
+        const orderSubtotal = items.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
 
-        // Recalculate shipping for this specific order
         const settings = adminSettings?.find(s => s.admin_id === adminId);
-        const address = addresses?.find(a => a.id === selectedAddress);
-        const isTamilNadu = ['tamil nadu', 'tamilnadu', 'tn'].includes(address?.state?.toLowerCase()?.trim() || '');
 
-        const orderShipping = deliveryMethod === 'self_pickup' ? 0 : (settings
-          ? (isTamilNadu ? (settings.shipping_cost_within_tamilnadu || 0) : (settings.shipping_cost_outside_tamilnadu || 0))
-          : 0);
+        const baseCost = settings
+          ? (isTN ? (settings.shipping_cost_within_tamilnadu || 0) : (settings.shipping_cost_outside_tamilnadu || 0))
+          : 0;
+        
+        const freeAbove = (settings as any)?.free_delivery_above || 0;
+        const isFreeDelivery = freeAbove > 0 && orderSubtotal >= freeAbove;
+        const orderShipping = deliveryMethod === 'self_pickup' ? 0 : (isFreeDelivery ? 0 : baseCost);
 
         const adminExtraCharges = (settings as any)?.shop_type === 'food'
           ? ((settings as any)?.cutting_charges || 0) + ((settings as any)?.extra_delivery_charges || 0)
@@ -223,7 +212,13 @@ export default function Checkout() {
         const orderTotal = orderSubtotal + orderShipping + adminExtraCharges;
         const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-        // Check if this admin has payment enabled and user selected card
+        // Estimated delivery date
+        const deliveryDays = isTN
+          ? (settings?.delivery_within_tamilnadu_days || 3)
+          : (settings?.delivery_outside_tamilnadu_days || 7);
+        const estDate = new Date();
+        estDate.setDate(estDate.getDate() + deliveryDays);
+
         const adminPaymentSettings = adminSettings?.find(s => s.admin_id === adminId);
         const processPayment = paymentMethod === 'card' && adminPaymentSettings?.is_payment_enabled;
         const usePhonePe = processPayment && (adminPaymentSettings as any)?.phonepe_enabled && (adminPaymentSettings as any)?.phonepe_merchant_id;
@@ -249,7 +244,6 @@ export default function Checkout() {
               throw new Error(phonePeError?.message || 'Failed to initiate PhonePe payment');
             }
 
-            // Store transaction ID for verification after redirect
             localStorage.setItem('phonepe_txn', JSON.stringify({
               merchant_transaction_id: phonePeData.merchant_transaction_id,
               admin_id: adminId,
@@ -270,9 +264,8 @@ export default function Checkout() {
               })),
             }));
 
-            // Redirect to PhonePe payment page
             window.location.href = phonePeData.redirect_url;
-            return; // Exit - will redirect
+            return;
           } catch (err) {
             console.error('PhonePe payment failed:', err);
             toast({ title: 'PhonePe payment failed', description: (err as Error).message, variant: 'destructive' });
@@ -280,19 +273,12 @@ export default function Checkout() {
           }
         } else if (useRazorpay) {
           try {
-            // 1. Create Order on Razorpay via Edge Function
             const { data: orderData, error: orderError } = await supabase.functions.invoke('payment-ops', {
-              body: {
-                action: 'create_order',
-                amount: orderTotal,
-                currency: 'INR',
-                admin_id: adminId,
-              }
+              body: { action: 'create_order', amount: orderTotal, currency: 'INR', admin_id: adminId }
             });
 
             if (orderError || !orderData?.order_id) throw new Error(orderError?.message || 'Failed to initialize payment');
 
-            // 2. Open Razorpay Checkout
             await new Promise((resolve, reject) => {
               const options = {
                 key: orderData.key_id,
@@ -311,30 +297,17 @@ export default function Checkout() {
                       admin_id: adminId,
                     }
                   });
-
-                  if (verifyError || !verifyData?.verified) {
-                    reject(new Error('Payment verification failed'));
-                  } else {
-                    paymentSuccess = true;
-                    paymentId = response.razorpay_payment_id;
-                    resolve(true);
-                  }
+                  if (verifyError || !verifyData?.verified) reject(new Error('Payment verification failed'));
+                  else { paymentSuccess = true; paymentId = response.razorpay_payment_id; resolve(true); }
                 },
-                modal: {
-                  ondismiss: function () {
-                    reject(new Error('Payment cancelled'));
-                  }
-                },
+                modal: { ondismiss: () => reject(new Error('Payment cancelled')) },
                 prefill: {
                   name: user.user_metadata?.full_name,
                   email: user.email,
                   contact: addresses?.find(a => a.id === selectedAddress)?.phone,
                 },
-                theme: {
-                  color: '#0F172A'
-                }
+                theme: { color: '#0F172A' }
               };
-
               const rzp = new (window as any).Razorpay(options);
               rzp.open();
             });
@@ -345,7 +318,6 @@ export default function Checkout() {
           }
         }
 
-        // Create order
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -354,20 +326,20 @@ export default function Checkout() {
             store_id: storeId,
             address_id: selectedAddress,
             order_number: orderNumber,
-            status: paymentSuccess ? 'processing' : 'pending', // 'processing' implies paid/confirmed
+            status: paymentSuccess ? 'processing' : 'pending',
             payment_status: paymentSuccess ? 'paid' : 'pending',
             payment_method: deliveryMethod === 'self_pickup' ? 'self_pickup' : (processPayment && paymentSuccess ? 'online' : 'cod'),
             payment_id: paymentId,
             subtotal: orderSubtotal,
             shipping_cost: orderShipping,
             total: orderTotal,
+            estimated_delivery_date: estDate.toISOString().split('T')[0],
           })
           .select()
           .single();
 
         if (orderError) throw orderError;
 
-        // Create order items
         const orderItems = items.map(item => ({
           order_id: order.id,
           product_id: item.product_id,
@@ -379,25 +351,16 @@ export default function Checkout() {
           total_price: (item.product?.price || 0) * item.quantity,
         }));
 
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(orderItems);
-
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
         if (itemsError) throw itemsError;
       }
 
-      // Clear cart
       await clearCart.mutateAsync();
-
       toast({ title: 'Order placed successfully!' });
       navigate('/orders');
     } catch (error: any) {
       console.error('Order error:', error);
-      toast({
-        title: 'Failed to place order',
-        description: error.message,
-        variant: 'destructive'
-      });
+      toast({ title: 'Failed to place order', description: error.message, variant: 'destructive' });
     } finally {
       setIsPlacingOrder(false);
     }
@@ -425,18 +388,9 @@ export default function Checkout() {
                   ? 'bg-success text-success-foreground'
                   : 'bg-muted text-muted-foreground'
             )}>
-              {i < ['address', 'payment', 'review'].indexOf(step) ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                i + 1
-              )}
+              {i < ['address', 'payment', 'review'].indexOf(step) ? <Check className="h-4 w-4" /> : i + 1}
             </div>
-            <span className={cn(
-              'text-sm capitalize',
-              step === s ? 'font-medium' : 'text-muted-foreground'
-            )}>
-              {s}
-            </span>
+            <span className={cn('text-sm capitalize', step === s ? 'font-medium' : 'text-muted-foreground')}>{s}</span>
             {i < 2 && <div className="h-px w-8 bg-border" />}
           </div>
         ))}
@@ -466,17 +420,11 @@ export default function Checkout() {
                     key={address.id}
                     className={cn(
                       'relative rounded-lg border p-4 cursor-pointer transition-colors',
-                      selectedAddress === address.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:bg-muted/50'
+                      selectedAddress === address.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
                     )}
                     onClick={() => setSelectedAddress(address.id)}
                   >
-                    <RadioGroupItem
-                      value={address.id}
-                      id={address.id}
-                      className="absolute right-4 top-4"
-                    />
+                    <RadioGroupItem value={address.id} id={address.id} className="absolute right-4 top-4" />
                     <Label htmlFor={address.id} className="cursor-pointer">
                       <p className="font-medium">{address.full_name}</p>
                       <p className="mt-1 text-sm text-muted-foreground">{address.phone}</p>
@@ -484,9 +432,7 @@ export default function Checkout() {
                         {address.address_line1}
                         {address.address_line2 && `, ${address.address_line2}`}
                       </p>
-                      <p className="text-sm">
-                        {address.city}, {address.state} - {address.postal_code}
-                      </p>
+                      <p className="text-sm">{address.city}, {address.state} - {address.postal_code}</p>
                     </Label>
                   </div>
                 ))}
@@ -507,10 +453,7 @@ export default function Checkout() {
 
             <Button
               className="w-full"
-              onClick={() => {
-                checkServiceArea();
-                if (!serviceAreaError) setStep('payment');
-              }}
+              onClick={() => { checkServiceArea(); if (!serviceAreaError) setStep('payment'); }}
               disabled={!selectedAddress || !!serviceAreaError}
             >
               Continue to Payment
@@ -521,16 +464,12 @@ export default function Checkout() {
         {/* Payment Step */}
         {step === 'payment' && (
           <div className="space-y-4">
-            {/* Delivery Method */}
             {isSelfPickupAvailable && (
               <>
                 <h2 className="font-semibold">Delivery Method</h2>
                 <RadioGroup value={deliveryMethod} onValueChange={setDeliveryMethod}>
                   <div
-                    className={cn(
-                      'relative rounded-lg border p-4 cursor-pointer',
-                      deliveryMethod === 'delivery' ? 'border-primary bg-primary/5' : 'border-border'
-                    )}
+                    className={cn('relative rounded-lg border p-4 cursor-pointer', deliveryMethod === 'delivery' ? 'border-primary bg-primary/5' : 'border-border')}
                     onClick={() => setDeliveryMethod('delivery')}
                   >
                     <RadioGroupItem value="delivery" id="delivery_method" className="absolute right-4 top-4" />
@@ -543,10 +482,7 @@ export default function Checkout() {
                     </Label>
                   </div>
                   <div
-                    className={cn(
-                      'relative rounded-lg border p-4 cursor-pointer',
-                      deliveryMethod === 'self_pickup' ? 'border-primary bg-primary/5' : 'border-border'
-                    )}
+                    className={cn('relative rounded-lg border p-4 cursor-pointer', deliveryMethod === 'self_pickup' ? 'border-primary bg-primary/5' : 'border-border')}
                     onClick={() => setDeliveryMethod('self_pickup')}
                   >
                     <RadioGroupItem value="self_pickup" id="self_pickup_method" className="absolute right-4 top-4" />
@@ -566,10 +502,7 @@ export default function Checkout() {
 
             <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
               <div
-                className={cn(
-                  'relative rounded-lg border p-4 cursor-pointer',
-                  paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-border'
-                )}
+                className={cn('relative rounded-lg border p-4 cursor-pointer', paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-border')}
                 onClick={() => setPaymentMethod('cod')}
               >
                 <RadioGroupItem value="cod" id="cod" className="absolute right-4 top-4" />
@@ -606,99 +539,89 @@ export default function Checkout() {
             </RadioGroup>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep('address')}>
-                Back
-              </Button>
-              <Button className="flex-1" onClick={() => setStep('review')}>
-                Review Order
+              <Button variant="outline" onClick={() => setStep('address')}>Back</Button>
+              <Button className="flex-1" onClick={() => setStep('review')}>Review Order</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Review Step */}
+        {step === 'review' && (
+          <div className="space-y-4">
+            <h2 className="font-semibold">Review Your Order</h2>
+
+            <div className="space-y-3">
+              {cart.map((item) => {
+                const image = item.product?.images?.find(img => img.is_primary)?.image_url
+                  || item.product?.images?.[0]?.image_url
+                  || '/placeholder.svg';
+                return (
+                  <div key={item.id} className="flex gap-3 rounded-lg border border-border p-3">
+                    <img src={image} alt={item.product?.name} className="h-16 w-16 rounded object-cover" />
+                    <div className="flex-1">
+                      <p className="line-clamp-1 text-sm font-medium">{item.product?.name}</p>
+                      <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                      <p className="font-medium">₹{((item.product?.price || 0) * item.quantity).toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Delivery Address */}
+            {selectedAddress && (
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-sm font-medium text-muted-foreground">Delivering to</p>
+                {(() => {
+                  const addr = addresses?.find(a => a.id === selectedAddress);
+                  if (!addr) return null;
+                  return (
+                    <div className="mt-2">
+                      <p className="font-medium">{addr.full_name}</p>
+                      <p className="text-sm">{addr.address_line1}, {addr.city}, {addr.state} - {addr.postal_code}</p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Estimated Delivery */}
+            {estimatedDelivery && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium text-primary">
+                    Estimated Delivery: {estimatedDelivery.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isTN ? 'Within Tamil Nadu' : 'Outside Tamil Nadu'} • ~{estimatedDelivery.days} business days
+                </p>
+              </div>
+            )}
+
+            {/* Delivery & Payment Method */}
+            <div className="rounded-lg border border-border p-4 space-y-2">
+              {deliveryMethod === 'self_pickup' && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Delivery Method</p>
+                  <p className="mt-1 font-medium text-emerald-600">🏪 Self Pickup</p>
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
+                <p className="mt-1 font-medium">{paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card / UPI'}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setStep('payment')}>Back</Button>
+              <Button className="flex-1" onClick={handlePlaceOrder} disabled={isPlacingOrder}>
+                {isPlacingOrder ? 'Placing Order...' : 'Place Order'}
               </Button>
             </div>
           </div>
-        )
-        }
-
-        {/* Review Step */}
-        {
-          step === 'review' && (
-            <div className="space-y-4">
-              <h2 className="font-semibold">Review Your Order</h2>
-
-              {/* Order Items */}
-              <div className="space-y-3">
-                {cart.map((item) => {
-                  const image = item.product?.images?.find(img => img.is_primary)?.image_url
-                    || item.product?.images?.[0]?.image_url
-                    || '/placeholder.svg';
-
-                  return (
-                    <div key={item.id} className="flex gap-3 rounded-lg border border-border p-3">
-                      <img
-                        src={image}
-                        alt={item.product?.name}
-                        className="h-16 w-16 rounded object-cover"
-                      />
-                      <div className="flex-1">
-                        <p className="line-clamp-1 text-sm font-medium">{item.product?.name}</p>
-                        <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                        <p className="font-medium">
-                          ₹{((item.product?.price || 0) * item.quantity).toLocaleString('en-IN')}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Delivery Address */}
-              {selectedAddress && (
-                <div className="rounded-lg border border-border p-4">
-                  <p className="text-sm font-medium text-muted-foreground">Delivering to</p>
-                  {(() => {
-                    const addr = addresses?.find(a => a.id === selectedAddress);
-                    if (!addr) return null;
-                    return (
-                      <div className="mt-2">
-                        <p className="font-medium">{addr.full_name}</p>
-                        <p className="text-sm">
-                          {addr.address_line1}, {addr.city}, {addr.state} - {addr.postal_code}
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* Delivery & Payment Method */}
-              <div className="rounded-lg border border-border p-4 space-y-2">
-                {deliveryMethod === 'self_pickup' && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Delivery Method</p>
-                    <p className="mt-1 font-medium text-emerald-600">🏪 Self Pickup</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
-                  <p className="mt-1 font-medium">
-                    {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card / UPI'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep('payment')}>
-                  Back
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handlePlaceOrder}
-                  disabled={isPlacingOrder}
-                >
-                  {isPlacingOrder ? 'Placing Order...' : 'Place Order'}
-                </Button>
-              </div>
-            </div>
-          )
-        }
+        )}
       </div>
 
       {/* Order Summary */}

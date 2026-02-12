@@ -1,13 +1,16 @@
 import { useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { CategoryScroll } from '@/components/home/CategoryScroll';
 import { HomeSearch } from '@/components/home/HomeSearch';
 import { useProducts } from '@/hooks/useProducts';
 import { useAllCategories } from '@/hooks/useCategories';
 import { useStore } from '@/contexts/StoreContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Store } from 'lucide-react';
+import { Store, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 const LAST_STORE_KEY = 'bazaar_last_store';
 
@@ -16,42 +19,37 @@ export default function Products() {
   const { user, isAdmin, isSuperAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Save current store to localStorage when on a store route
   useEffect(() => {
-    if (storeSlug) {
-      localStorage.setItem(LAST_STORE_KEY, storeSlug);
-    }
+    if (storeSlug) localStorage.setItem(LAST_STORE_KEY, storeSlug);
   }, [storeSlug]);
 
-  // Redirect logic for non-store routes
   useEffect(() => {
     if (!authLoading && !isStoreRoute) {
-      // Check for last store
       const lastStore = localStorage.getItem(LAST_STORE_KEY);
-
       if (user) {
-        if (isSuperAdmin) {
-          navigate('/super-admin');
-          return;
-        }
-        if (isAdmin) {
-          navigate('/admin/products');
-          return;
-        }
+        if (isSuperAdmin) { navigate('/super-admin'); return; }
+        if (isAdmin) { navigate('/admin/products'); return; }
       }
-
-      // Redirect to last store's products page if available
-      if (lastStore) {
-        navigate(`/s/${lastStore}/products`);
-        return;
-      }
+      if (lastStore) { navigate(`/s/${lastStore}/products`); return; }
     }
   }, [user, isAdmin, isSuperAdmin, authLoading, isStoreRoute, navigate]);
 
   const { data: products, isLoading } = useProducts({ adminId: adminId ?? undefined });
   const { data: categories } = useAllCategories(adminId ?? undefined);
 
-  // Show loading while checking auth or redirecting
+  // Fetch admin settings for free delivery info
+  const { data: storeSettings } = useQuery({
+    queryKey: ['store-settings-products', adminId],
+    queryFn: async () => {
+      if (!adminId) return null;
+      const { data } = await supabase.from('admin_settings').select('*').eq('admin_id', adminId).maybeSingle();
+      return data;
+    },
+    enabled: !!adminId,
+  });
+
+  const freeDeliveryAbove = (storeSettings as any)?.free_delivery_above || 0;
+
   if (authLoading) {
     return (
       <MainLayout>
@@ -62,7 +60,6 @@ export default function Products() {
     );
   }
 
-  // If not on store route and no admin context, show redirect message
   if (!isStoreRoute && !adminId) {
     return (
       <MainLayout>
@@ -82,9 +79,24 @@ export default function Products() {
 
   return (
     <MainLayout>
+      {/* Free delivery banner */}
+      {freeDeliveryAbove > 0 && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-2 text-center">
+          <p className="text-xs font-medium text-primary flex items-center justify-center gap-1">
+            <Truck className="h-3.5 w-3.5" />
+            Free delivery on orders above ₹{freeDeliveryAbove.toLocaleString('en-IN')}!
+          </p>
+        </div>
+      )}
+      
+      {/* Sticky category + search */}
+      <div className="sticky top-[var(--nav-height,56px)] z-30 bg-background shadow-sm">
+        <CategoryScroll adminId={adminId ?? undefined} />
+      </div>
+      
       <div className="py-4 space-y-4">
         <h1 className="text-xl font-semibold px-4">All Products</h1>
-        <HomeSearch products={products} categories={categories} isLoading={isLoading} />
+        <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} />
       </div>
     </MainLayout>
   );

@@ -101,6 +101,7 @@ export type Database = {
           delivery_outside_tamilnadu_days: number | null
           delivery_within_tamilnadu_days: number | null
           extra_delivery_charges: number | null
+          free_delivery_above: number | null
           id: string
           is_payment_enabled: boolean | null
           is_shipping_integration_enabled: boolean | null
@@ -135,6 +136,7 @@ export type Database = {
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
           extra_delivery_charges?: number | null
+          free_delivery_above?: number | null
           id?: string
           is_payment_enabled?: boolean | null
           is_shipping_integration_enabled?: boolean | null
@@ -169,6 +171,7 @@ export type Database = {
           delivery_outside_tamilnadu_days?: number | null
           delivery_within_tamilnadu_days?: number | null
           extra_delivery_charges?: number | null
+          free_delivery_above?: number | null
           id?: string
           is_payment_enabled?: boolean | null
           is_shipping_integration_enabled?: boolean | null

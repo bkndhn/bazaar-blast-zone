@@ -18,7 +18,6 @@ interface Banner {
   text_color: string | null;
 }
 
-// Default fallback banners
 const defaultBanners = [
   {
     id: '1',
@@ -65,51 +64,32 @@ export function BannerCarousel({ adminId }: { adminId?: string }) {
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  const goTo = (index: number) => {
-    setCurrent(index);
-  };
+  const goTo = (index: number) => setCurrent(index);
+  const prev = () => setCurrent((current - 1 + banners.length) % banners.length);
+  const next = () => setCurrent((current + 1) % banners.length);
 
-  const prev = () => {
-    setCurrent((current - 1 + banners.length) % banners.length);
-  };
-
-  const next = () => {
-    setCurrent((current + 1) % banners.length);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.touches[0].clientX);
-  };
-
+  const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.touches[0].clientX);
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStart === null) return;
-    const touchEnd = e.changedTouches[0].clientX;
-    const diff = touchStart - touchEnd;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
-        next();
-      } else {
-        prev();
-      }
-    }
+    const diff = touchStart - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) diff > 0 ? next() : prev();
     setTouchStart(null);
   };
 
   if (isLoading) {
     return (
-      <section className="mx-4 my-4">
-        <Skeleton className="h-36 w-full rounded-xl" />
+      <section className="w-full">
+        <Skeleton className="h-[160px] sm:h-[200px] md:h-[280px] lg:h-[340px] w-full" />
       </section>
     );
   }
 
   return (
     <section 
-      className="relative mx-4 my-4 overflow-hidden rounded-xl"
+      className="relative w-full overflow-hidden bg-muted"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Slides */}
       <div 
         className="flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${current * 100}%)` }}
@@ -119,13 +99,12 @@ export function BannerCarousel({ adminId }: { adminId?: string }) {
         ))}
       </div>
 
-      {/* Navigation Arrows */}
       {banners.length > 1 && (
         <>
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-black/20 text-white hover:bg-black/30"
+            className="absolute left-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-black/30 text-white hover:bg-black/50"
             onClick={prev}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -133,7 +112,7 @@ export function BannerCarousel({ adminId }: { adminId?: string }) {
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-black/20 text-white hover:bg-black/30"
+            className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-black/30 text-white hover:bg-black/50"
             onClick={next}
           >
             <ChevronRight className="h-5 w-5" />
@@ -141,7 +120,6 @@ export function BannerCarousel({ adminId }: { adminId?: string }) {
         </>
       )}
 
-      {/* Dots */}
       {banners.length > 1 && (
         <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
           {banners.map((_, index) => (
@@ -149,10 +127,10 @@ export function BannerCarousel({ adminId }: { adminId?: string }) {
               key={index}
               onClick={() => goTo(index)}
               className={cn(
-                'h-1.5 rounded-full transition-all',
+                'h-2 rounded-full transition-all',
                 index === current 
-                  ? 'w-4 bg-white' 
-                  : 'w-1.5 bg-white/50'
+                  ? 'w-5 bg-white' 
+                  : 'w-2 bg-white/50'
               )}
             />
           ))}
@@ -164,23 +142,19 @@ export function BannerCarousel({ adminId }: { adminId?: string }) {
 
 function BannerSlide({ banner }: { banner: Banner }) {
   const isImage = banner.type === 'image' && banner.image_url;
-  const bgStyle = banner.background_color 
-    ? { backgroundColor: banner.background_color }
-    : undefined;
-  const textStyle = banner.text_color 
-    ? { color: banner.text_color }
-    : undefined;
+  const bgStyle = banner.background_color ? { backgroundColor: banner.background_color } : undefined;
+  const textStyle = banner.text_color ? { color: banner.text_color } : undefined;
 
   const content = isImage ? (
     <img
       src={banner.image_url!}
       alt={banner.title || 'Banner'}
-      className="w-full object-contain h-[140px] sm:h-[180px] md:h-[260px] lg:h-[320px] xl:h-[380px]"
+      className="w-full object-cover h-[160px] sm:h-[200px] md:h-[280px] lg:h-[340px]"
     />
   ) : (
     <div 
       className={cn(
-        'flex min-h-36 w-full flex-col items-center justify-center px-6 py-8 text-center',
+        'flex h-[160px] sm:h-[200px] md:h-[280px] lg:h-[340px] w-full flex-col items-center justify-center px-6 py-8 text-center',
         !banner.background_color && 'bg-gradient-to-r from-primary to-primary/70'
       )}
       style={bgStyle}
@@ -206,21 +180,12 @@ function BannerSlide({ banner }: { banner: Banner }) {
     const isExternal = banner.link_url.startsWith('http');
     if (isExternal) {
       return (
-        <a
-          href={banner.link_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="min-w-full"
-        >
+        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" className="min-w-full">
           {content}
         </a>
       );
     }
-    return (
-      <Link to={banner.link_url} className="min-w-full">
-        {content}
-      </Link>
-    );
+    return <Link to={banner.link_url} className="min-w-full">{content}</Link>;
   }
 
   return <div className="min-w-full">{content}</div>;
