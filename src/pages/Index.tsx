@@ -7,7 +7,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { useAllCategories } from '@/hooks/useCategories';
 import { useStore } from '@/contexts/StoreContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Store, ShoppingBag, UserPlus, LogIn, ArrowRight, Search, LayoutDashboard } from 'lucide-react';
+import { Store, ShoppingBag, UserPlus, LogIn, ArrowRight, Search, LayoutDashboard, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
@@ -24,15 +24,11 @@ const Index = () => {
   const [storeInput, setStoreInput] = useState('');
   const [lastStore, setLastStore] = useState<string | null>(null);
 
-  // Check localStorage for last visited store
   useEffect(() => {
     const stored = localStorage.getItem(LAST_STORE_KEY);
-    if (stored) {
-      setLastStore(stored);
-    }
+    if (stored) setLastStore(stored);
   }, []);
 
-  // Save current store to localStorage when on a store route
   useEffect(() => {
     if (storeSlug) {
       localStorage.setItem(LAST_STORE_KEY, storeSlug);
@@ -40,41 +36,24 @@ const Index = () => {
     }
   }, [storeSlug]);
 
-  // Redirect admins to their dashboard
   useEffect(() => {
     if (!authLoading && user && !isStoreRoute) {
-      if (isSuperAdmin) {
-        navigate('/super-admin');
-        return;
-      }
-      if (isAdmin) {
-        navigate('/admin');
-        return;
-      }
-      // For regular customers, if they have a last store, redirect there
-      if (lastStore) {
-        navigate(`/s/${lastStore}`);
-        return;
-      }
+      if (isSuperAdmin) { navigate('/super-admin'); return; }
+      if (isAdmin) { navigate('/admin'); return; }
+      if (lastStore) { navigate(`/s/${lastStore}`); return; }
     }
   }, [user, isAdmin, isSuperAdmin, authLoading, isStoreRoute, lastStore, navigate]);
 
-  // Fetch admin's store if they are an admin (to get their store slug)
   const { data: adminStore } = useQuery({
     queryKey: ['admin-store-slug', user?.id],
     queryFn: async () => {
       if (!user || !isAdmin) return null;
-      const { data } = await supabase
-        .from('stores')
-        .select('slug')
-        .eq('admin_id', user.id)
-        .maybeSingle();
+      const { data } = await supabase.from('stores').select('slug').eq('admin_id', user.id).maybeSingle();
       return data;
     },
     enabled: !!user && isAdmin && !isStoreRoute,
   });
 
-  // Auto-redirect admin to their own store if they land on root
   useEffect(() => {
     if (adminStore?.slug && !isStoreRoute) {
       localStorage.setItem(LAST_STORE_KEY, adminStore.slug);
@@ -84,6 +63,19 @@ const Index = () => {
   const { data: products, isLoading } = useProducts({ adminId: adminId ?? undefined });
   const { data: categories } = useAllCategories(adminId ?? undefined);
 
+  // Fetch admin settings for free delivery info
+  const { data: storeSettings } = useQuery({
+    queryKey: ['store-settings-home', adminId],
+    queryFn: async () => {
+      if (!adminId) return null;
+      const { data } = await supabase.from('admin_settings').select('*').eq('admin_id', adminId).maybeSingle();
+      return data;
+    },
+    enabled: !!adminId,
+  });
+
+  const freeDeliveryAbove = (storeSettings as any)?.free_delivery_above || 0;
+
   const handleGoToStore = (e: React.FormEvent) => {
     e.preventDefault();
     if (storeInput.trim()) {
@@ -92,7 +84,6 @@ const Index = () => {
     }
   };
 
-  // Show loading while checking auth
   if (authLoading) {
     return (
       <MainLayout showHeader={false}>
@@ -103,20 +94,34 @@ const Index = () => {
     );
   }
 
-  // If on a store route OR we have admin context, show store content
   if (isStoreRoute || adminId) {
     return (
       <MainLayout showHeader={false}>
         <BannerCarousel adminId={adminId ?? undefined} />
-        <CategoryScroll adminId={adminId ?? undefined} />
+        
+        {/* Free delivery banner */}
+        {freeDeliveryAbove > 0 && (
+          <div className="bg-primary/10 border-b border-primary/20 px-4 py-2 text-center">
+            <p className="text-xs font-medium text-primary flex items-center justify-center gap-1">
+              <Truck className="h-3.5 w-3.5" />
+              Free delivery on orders above ₹{freeDeliveryAbove.toLocaleString('en-IN')}!
+            </p>
+          </div>
+        )}
+        
+        {/* Sticky category + search */}
+        <div className="sticky top-0 z-30 bg-background shadow-sm">
+          <CategoryScroll adminId={adminId ?? undefined} />
+        </div>
+        
         <section className="pb-6">
-          <HomeSearch products={products} categories={categories} isLoading={isLoading} />
+          <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} />
         </section>
       </MainLayout>
     );
   }
 
-  // Show welcome page for new users (not logged in and no last store)
+  // Welcome page for new users
   return (
     <MainLayout showHeader={false}>
       <div className="flex flex-col min-h-[80vh] px-4 py-8">
@@ -139,9 +144,7 @@ const Index = () => {
                 <ShoppingBag className="h-5 w-5 text-primary" />
                 Visit a Store
               </CardTitle>
-              <CardDescription>
-                Enter a store name to start shopping
-              </CardDescription>
+              <CardDescription>Enter a store name to start shopping</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleGoToStore} className="flex gap-2">
@@ -158,9 +161,7 @@ const Index = () => {
                   Go
                 </Button>
               </form>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Ask your seller for their store name
-              </p>
+              <p className="mt-2 text-xs text-muted-foreground">Ask your seller for their store name</p>
             </CardContent>
           </Card>
 
@@ -173,9 +174,7 @@ const Index = () => {
                     <UserPlus className="h-5 w-5 text-success" />
                     Become a Seller
                   </CardTitle>
-                  <CardDescription>
-                    Create your online store in minutes
-                  </CardDescription>
+                  <CardDescription>Create your online store in minutes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <ul className="text-sm space-y-1 text-muted-foreground">
@@ -221,9 +220,7 @@ const Index = () => {
                     </div>
                   </div>
                   <Button size="sm" asChild>
-                    <Link to="/account">
-                      My Account
-                    </Link>
+                    <Link to="/account">My Account</Link>
                   </Button>
                 </div>
               </CardContent>

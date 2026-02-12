@@ -87,6 +87,7 @@ export default function AdminSettings() {
     service_area_lat: 0,
     service_area_lng: 0,
     service_area_radius_km: 10,
+    free_delivery_above: 0,
   });
 
   // Helper to convert Hex to HSL (approximate)
@@ -194,6 +195,7 @@ export default function AdminSettings() {
         service_area_lat: (adminSettings as any).service_area_lat || 0,
         service_area_lng: (adminSettings as any).service_area_lng || 0,
         service_area_radius_km: (adminSettings as any).service_area_radius_km || 10,
+        free_delivery_above: (adminSettings as any).free_delivery_above || 0,
       });
     }
   }, [adminSettings]);
@@ -284,6 +286,7 @@ export default function AdminSettings() {
           service_area_lat: deliverySettings.service_area_lat,
           service_area_lng: deliverySettings.service_area_lng,
           service_area_radius_km: deliverySettings.service_area_radius_km,
+          free_delivery_above: deliverySettings.free_delivery_above,
         } as any, { onConflict: 'admin_id' });
 
       if (error) throw error;
@@ -730,8 +733,29 @@ export default function AdminSettings() {
                 </div>
               </div>
 
+              {/* Free Delivery Threshold */}
+              <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <Label className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-primary" />
+                  Free Delivery Above (₹)
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={deliverySettings.free_delivery_above}
+                  onChange={(e) => setDeliverySettings({
+                    ...deliverySettings,
+                    free_delivery_above: parseFloat(e.target.value) || 0,
+                  })}
+                  placeholder="e.g. 499"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set to 0 to disable. Customers with cart value above this amount get free delivery. This will be shown on your store homepage.
+                </p>
+              </div>
+
               <p className="text-xs text-muted-foreground">
-                These settings are used to calculate estimated delivery dates shown to customers.
+                These settings are used to calculate estimated delivery dates and charges shown to customers.
               </p>
 
               <Button
