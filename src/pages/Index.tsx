@@ -110,12 +110,13 @@ const Index = () => {
         )}
         
         {/* Sticky category + search */}
-        <div className="sticky top-0 z-30 bg-background shadow-sm">
+        <div className="sticky top-0 z-40 bg-background shadow-sm pb-1">
           <CategoryScroll adminId={adminId ?? undefined} />
+          <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} searchOnly />
         </div>
         
         <section className="pb-6">
-          <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} />
+          <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} gridOnly />
         </section>
       </MainLayout>
     );

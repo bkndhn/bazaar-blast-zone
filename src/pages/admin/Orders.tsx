@@ -83,6 +83,7 @@ export default function AdminOrders() {
     tracking_number: '',
     courier_service: '',
     estimated_delivery_date: '',
+    payment_status: '',
   });
 
   const { data: orders, isLoading, refetch } = useQuery({
@@ -184,11 +185,11 @@ export default function AdminOrders() {
   }, [user, refetch]);
 
   const updateOrder = useMutation({
-    mutationFn: async (data: { orderId: string; status: string; notes?: string; tracking_number?: string; courier_service?: string; estimated_delivery_date?: string }) => {
+    mutationFn: async (data: { orderId: string; status: string; notes?: string; tracking_number?: string; courier_service?: string; estimated_delivery_date?: string; payment_status?: string }) => {
       const courier = COURIER_OPTIONS.find(c => c.value === data.courier_service);
       const trackingUrl = courier && data.tracking_number ? courier.trackingUrl + data.tracking_number : null;
 
-      const updateData: any = { status: data.status, updated_at: new Date().toISOString() };
+      const updateData: any = { status: data.status, updated_at: new Date().toISOString(), payment_status: data.payment_status || undefined };
       if (data.notes !== undefined) updateData.notes = data.notes;
       if (data.tracking_number) updateData.tracking_number = data.tracking_number;
       if (data.courier_service) updateData.courier_service = data.courier_service;
@@ -247,13 +248,13 @@ export default function AdminOrders() {
     const isTamilnadu = order.address?.state?.toLowerCase().includes('tamil');
     const defaultDays = isTamilnadu ? (adminSettings?.delivery_within_tamilnadu_days || 3) : (adminSettings?.delivery_outside_tamilnadu_days || 7);
     const defaultDate = order.estimated_delivery_date || format(addDays(new Date(), defaultDays), 'yyyy-MM-dd');
-    setUpdateForm({ status: order.status, notes: '', tracking_number: order.tracking_number || '', courier_service: order.courier_service || '', estimated_delivery_date: defaultDate });
+    setUpdateForm({ status: order.status, notes: '', tracking_number: order.tracking_number || '', courier_service: order.courier_service || '', estimated_delivery_date: defaultDate, payment_status: order.payment_status || 'pending' });
     setUpdateDialog({ open: true, order });
   };
 
   const handleSubmitUpdate = () => {
     if (!updateDialog.order) return;
-    updateOrder.mutate({ orderId: updateDialog.order.id, status: updateForm.status, notes: updateForm.notes, tracking_number: updateForm.tracking_number, courier_service: updateForm.courier_service, estimated_delivery_date: updateForm.estimated_delivery_date });
+    updateOrder.mutate({ orderId: updateDialog.order.id, status: updateForm.status, notes: updateForm.notes, tracking_number: updateForm.tracking_number, courier_service: updateForm.courier_service, estimated_delivery_date: updateForm.estimated_delivery_date, payment_status: updateForm.payment_status });
   };
 
   return (
@@ -472,7 +473,7 @@ export default function AdminOrders() {
           <DialogHeader>
             <DialogTitle>Update Order #{updateDialog.order?.order_number}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Status</Label>
               <Select value={updateForm.status} onValueChange={(value) => setUpdateForm({ ...updateForm, status: value })}>
@@ -481,6 +482,19 @@ export default function AdminOrders() {
                   {orderStatuses.map((status) => (
                     <SelectItem key={status} value={status} className="capitalize">{statusLabels[status]}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Payment Status</Label>
+              <Select value={updateForm.payment_status} onValueChange={(value) => setUpdateForm({ ...updateForm, payment_status: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid / Collected</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
                 </SelectContent>
               </Select>
             </div>

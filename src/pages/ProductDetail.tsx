@@ -84,7 +84,7 @@ export default function ProductDetail() {
   const maxQty = Math.min(extendedProduct.max_quantity || 10, product.stock_quantity);
 
   // Weight-based pricing for food shops (kg, g, etc.)
-  const isWeightBased = ['kg', 'g', 'l', 'ml'].includes(unitType?.toLowerCase());
+  const isWeightBased = ['kg', 'g', 'l', 'ml'].includes(unitType?.toLowerCase()) || ['kg', 'g', 'l', 'ml'].includes(unitLabel?.toLowerCase());
   const baseWeight = unitValue || 1; // e.g., 1 (kg)
   const pricePerUnit = product.price / baseWeight; // price per 1 kg/g/l/ml
   const selectedWeight = customWeight ?? baseWeight;
@@ -282,6 +282,13 @@ export default function ProductDetail() {
           adminId={product.admin_id}
         />
 
+        {/* Unit Info */}
+        {extendedProduct.unit_value && extendedProduct.unit_type && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {extendedProduct.unit_value} {extendedProduct.unit_type}
+          </p>
+        )}
+
         {/* Price */}
         <div className="mt-4 flex items-baseline gap-2">
           <span className="text-2xl font-bold">
@@ -310,7 +317,7 @@ export default function ProductDetail() {
           )}
         </div>
 
-        {/* Quantity / Weight Selector */}
+        {/* Quantity / Weight Selector - always show weight selector for unit_type based products */}
         {product.stock_quantity > 0 && (
           <>
             {isWeightBased ? (

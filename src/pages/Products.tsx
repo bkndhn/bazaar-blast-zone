@@ -90,13 +90,14 @@ export default function Products() {
       )}
       
       {/* Sticky category + search */}
-      <div className="sticky top-[var(--nav-height,56px)] z-30 bg-background shadow-sm">
+      <div className="sticky top-[var(--nav-height,56px)] z-40 bg-background shadow-sm pb-1">
         <CategoryScroll adminId={adminId ?? undefined} />
+        <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} searchOnly />
       </div>
       
       <div className="py-4 space-y-4">
         <h1 className="text-xl font-semibold px-4">All Products</h1>
-        <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} />
+        <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} gridOnly />
       </div>
     </MainLayout>
   );
