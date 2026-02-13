@@ -327,6 +327,13 @@ export default function AdminCRM() {
                         <a href={`tel:${customer.phone}`} className="text-primary">{customer.phone}</a>
                       </div>
                     )}
+                    {/* Show phone from address if profile phone is not set */}
+                    {!customer.phone && defaultAddress?.phone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-3 w-3 text-muted-foreground" />
+                        <a href={`tel:${defaultAddress.phone}`} className="text-primary">{defaultAddress.phone}</a>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-sm">
                       <Mail className="h-3 w-3 text-muted-foreground" />
                       <a href={`mailto:${customer.email}`} className="text-primary truncate">{customer.email}</a>
@@ -341,6 +348,32 @@ export default function AdminCRM() {
                         </div>
                       </div>
                     )}
+                    
+                    {/* Past Orders */}
+                    {customer.orderCount > 0 && (
+                      <div className="pt-2 border-t border-border">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">
+                          <ShoppingCart className="h-3 w-3 inline mr-1" />
+                          Recent Orders
+                        </p>
+                        <div className="space-y-1">
+                          {(allOrders || [])
+                            .filter(o => o.user_id === customer.user_id)
+                            .slice(0, 5)
+                            .map((order: any) => (
+                              <div key={order.id} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">#{order.order_number}</span>
+                                <span className={`capitalize ${order.status === 'delivered' ? 'text-success' : order.status === 'cancelled' ? 'text-destructive' : 'text-foreground'}`}>
+                                  {order.status}
+                                </span>
+                                <span className="font-medium">₹{Number(order.total).toLocaleString('en-IN')}</span>
+                                <span className="text-muted-foreground">{format(new Date(order.created_at), 'dd MMM')}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="pt-2 text-xs text-muted-foreground border-t border-border">
                       <p>Last Order: {customer.lastOrder ? format(new Date(customer.lastOrder), 'MMM d, yyyy') : 'Never'}</p>
                       <p>Last Login: {customer.last_login ? format(new Date(customer.last_login), 'MMM d, yyyy h:mm a') : 'Never'}</p>

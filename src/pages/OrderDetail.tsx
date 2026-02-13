@@ -246,8 +246,8 @@ export default function OrderDetail() {
             </div>
           )}
 
-          {/* Tracking Info */}
-          {orderData.tracking_number && (
+        {/* Tracking Info - hide when delivered */}
+          {orderData.tracking_number && order.status !== 'delivered' && order.status !== 'cancelled' && (
             <div className="mt-4 pt-4 border-t border-border space-y-2">
               <p className="text-sm">
                 <span className="text-muted-foreground">Courier: </span>

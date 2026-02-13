@@ -16,6 +16,8 @@ interface HomeSearchProps {
   categories?: Category[];
   isLoading?: boolean;
   adminId?: string;
+  searchOnly?: boolean;
+  gridOnly?: boolean;
 }
 
 const isTamilNaduPincode = (pincode: string) => {
@@ -23,7 +25,7 @@ const isTamilNaduPincode = (pincode: string) => {
   return pin >= 600000 && pin <= 643999;
 };
 
-export function HomeSearch({ products, categories, isLoading, adminId }: HomeSearchProps) {
+export function HomeSearch({ products, categories, isLoading, adminId, searchOnly, gridOnly }: HomeSearchProps) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -85,6 +87,133 @@ export function HomeSearch({ products, categories, isLoading, adminId }: HomeSea
     if (pincode.length === 6) setPincodeChecked(true);
   };
 
+  // If gridOnly, just render the product grid
+  if (gridOnly) {
+    return (
+      <div className="space-y-3">
+        {isSearching && (
+          <p className="px-4 text-sm text-muted-foreground">
+            {filteredProducts.length} results{debouncedQuery && ` for "${debouncedQuery}"`}
+          </p>
+        )}
+        <div className="px-4">
+          <ProductGrid
+            products={isSearching ? filteredProducts : filteredProducts}
+            loading={isLoading}
+            emptyMessage={debouncedQuery ? `No products found for "${debouncedQuery}"` : 'No products found'}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // If searchOnly, just render the search bar + pincode
+  if (searchOnly) {
+    return (
+      <div className="space-y-2 pt-2">
+        <div className="flex gap-2 px-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search products, brands and more..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-10 w-full rounded-full border-muted bg-muted pl-10 pr-10 text-sm"
+            />
+            {query && (
+              <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2" onClick={() => setQuery('')}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 flex-shrink-0 relative">
+                <SlidersHorizontal className="h-4 w-4" />
+                {hasActiveFilters && <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary" />}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto max-h-[80vh]">
+              <SheetHeader>
+                <SheetTitle>Filters & Sort</SheetTitle>
+              </SheetHeader>
+              <div className="py-4 space-y-6">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Sort By</Label>
+                  <RadioGroup value={sortBy} onValueChange={setSortBy}>
+                    {[
+                      { value: 'newest', label: 'Newest First' },
+                      { value: 'price-low', label: 'Price: Low to High' },
+                      { value: 'price-high', label: 'Price: High to Low' },
+                      { value: 'name', label: 'Name: A to Z' },
+                    ].map(opt => (
+                      <div key={opt.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={opt.value} id={`sort-${opt.value}`} />
+                        <Label htmlFor={`sort-${opt.value}`} className="font-normal">{opt.label}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+
+                {categories && categories.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Category</Label>
+                    <RadioGroup value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="all" id="cat-all" />
+                        <Label htmlFor="cat-all" className="font-normal">All Categories</Label>
+                      </div>
+                      {categories.map((cat) => (
+                        <div key={cat.id} className="flex items-center space-x-2">
+                          <RadioGroupItem value={cat.id} id={`cat-${cat.id}`} />
+                          <Label htmlFor={`cat-${cat.id}`} className="font-normal">{cat.name}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" className="flex-1" onClick={() => { setSelectedCategory('all'); setSortBy('newest'); }}>Clear All</Button>
+                  <Button className="flex-1" onClick={() => setFilterOpen(false)}>Apply</Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* Pincode Delivery Check */}
+        {adminId && storeSettings && (
+          <div className="px-4">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Input
+                type="text"
+                placeholder="Enter pincode"
+                maxLength={6}
+                value={pincode}
+                onChange={(e) => { setPincode(e.target.value.replace(/\D/g, '')); setPincodeChecked(false); }}
+                className="h-8 w-28 text-xs"
+              />
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handlePincodeCheck} disabled={pincode.length !== 6}>
+                Check
+              </Button>
+              {pincodeChecked && deliveryDays !== null && (
+                <span className="text-xs text-primary flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  ~{deliveryDays} days
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Full render (default)
   return (
     <div className="space-y-3">
       {/* Search Bar */}
