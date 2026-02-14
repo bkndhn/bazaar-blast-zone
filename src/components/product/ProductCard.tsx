@@ -108,11 +108,11 @@ export function ProductCard({ product, className }: ProductCardProps) {
       )}
     >
       {/* Image Container */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-muted">
+      <div className="relative aspect-square sm:aspect-[4/5] overflow-hidden bg-muted">
         <img
           src={primaryImage}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
         />
 
@@ -195,7 +195,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
         {/* Qty & Unit */}
         {extendedProduct.unit_value && (
           <p className="mt-1 text-xs text-muted-foreground">
-            {extendedProduct.unit_value} {extendedProduct.unit_label || extendedProduct.unit_type}
+            {extendedProduct.unit_value} {extendedProduct.unit_label || 'pc'}
           </p>
         )}
 

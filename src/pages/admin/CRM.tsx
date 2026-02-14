@@ -130,14 +130,17 @@ export default function AdminCRM() {
       downloadTSV(headers, rows, 'customers.xls');
     } else {
       if (!allOrders?.length) { toast({ title: 'No data to export', variant: 'destructive' }); return; }
-      const headers = ['Order #', 'Date', 'Status', 'Payment Method', 'Payment Status', 'Subtotal (₹)', 'Shipping (₹)', 'Total (₹)', 'Items', 'Tracking #'];
-      const rows = allOrders.map(o => [
-        o.order_number,
-        format(new Date(o.created_at), 'yyyy-MM-dd HH:mm'),
-        o.status, o.payment_method || 'cod', o.payment_status || 'pending',
-        o.subtotal, o.shipping_cost, o.total,
-        o.items?.length || 0, o.tracking_number || '',
-      ]);
+      const headers = ['Order #', 'Date', 'Status', 'Payment Method', 'Payment Status', 'Subtotal (₹)', 'Shipping (₹)', 'Total (₹)', 'Products', 'Tracking #'];
+      const rows = allOrders.map(o => {
+        const productDetails = (o.items || []).map((item: any) => `${item.product_name} x${item.quantity} (₹${item.total_price})`).join('; ');
+        return [
+          o.order_number,
+          format(new Date(o.created_at), 'yyyy-MM-dd HH:mm'),
+          o.status, o.payment_method || 'cod', o.payment_status || 'pending',
+          o.subtotal, o.shipping_cost, o.total,
+          productDetails || '-', o.tracking_number || '',
+        ];
+      });
       downloadTSV(headers, rows, 'orders.xls');
     }
     toast({ title: `${type === 'customers' ? 'Customers' : 'Orders'} exported as Excel` });
@@ -183,9 +186,10 @@ export default function AdminCRM() {
       tableHtml += '</tbody></table>';
     } else {
       if (!allOrders?.length) { toast({ title: 'No data', variant: 'destructive' }); return; }
-      tableHtml = `<table><thead><tr><th>Order #</th><th>Date</th><th>Status</th><th>Payment</th><th>Subtotal</th><th>Shipping</th><th>Total</th></tr></thead><tbody>`;
+      tableHtml = `<table><thead><tr><th>Order #</th><th>Date</th><th>Status</th><th>Payment</th><th>Products</th><th>Subtotal</th><th>Shipping</th><th>Total</th></tr></thead><tbody>`;
       allOrders.forEach(o => {
-        tableHtml += `<tr><td>${o.order_number}</td><td>${format(new Date(o.created_at), 'dd MMM yyyy')}</td><td>${o.status}</td><td>${o.payment_method || 'cod'}</td><td>₹${o.subtotal}</td><td>₹${o.shipping_cost}</td><td>₹${o.total}</td></tr>`;
+        const productDetails = (o.items || []).map((item: any) => `${item.product_name} x${item.quantity}`).join(', ');
+        tableHtml += `<tr><td>${o.order_number}</td><td>${format(new Date(o.created_at), 'dd MMM yyyy')}</td><td>${o.status}</td><td>${o.payment_method || 'cod'}</td><td>${productDetails || '-'}</td><td>₹${o.subtotal}</td><td>₹${o.shipping_cost}</td><td>₹${o.total}</td></tr>`;
       });
       tableHtml += '</tbody></table>';
     }
@@ -356,18 +360,29 @@ export default function AdminCRM() {
                           <ShoppingCart className="h-3 w-3 inline mr-1" />
                           Recent Orders
                         </p>
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           {(allOrders || [])
                             .filter(o => o.user_id === customer.user_id)
                             .slice(0, 5)
                             .map((order: any) => (
-                              <div key={order.id} className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">#{order.order_number}</span>
-                                <span className={`capitalize ${order.status === 'delivered' ? 'text-success' : order.status === 'cancelled' ? 'text-destructive' : 'text-foreground'}`}>
-                                  {order.status}
-                                </span>
-                                <span className="font-medium">₹{Number(order.total).toLocaleString('en-IN')}</span>
-                                <span className="text-muted-foreground">{format(new Date(order.created_at), 'dd MMM')}</span>
+                              <div key={order.id} className="space-y-0.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">#{order.order_number}</span>
+                                  <span className={`capitalize ${order.status === 'delivered' ? 'text-success' : order.status === 'cancelled' ? 'text-destructive' : 'text-foreground'}`}>
+                                    {order.status}
+                                  </span>
+                                  <span className="font-medium">₹{Number(order.total).toLocaleString('en-IN')}</span>
+                                  <span className="text-muted-foreground">{format(new Date(order.created_at), 'dd MMM')}</span>
+                                </div>
+                                {order.items && order.items.length > 0 && (
+                                  <div className="pl-2 text-[10px] text-muted-foreground">
+                                    {order.items.map((item: any, idx: number) => (
+                                      <span key={item.id}>
+                                        {item.product_name} ×{item.quantity}{idx < order.items.length - 1 ? ', ' : ''}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ))}
                         </div>
