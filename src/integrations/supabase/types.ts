@@ -1075,6 +1075,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_order_number: { Args: never; Returns: string }
       get_user_admin_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
