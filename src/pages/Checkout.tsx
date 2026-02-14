@@ -210,7 +210,9 @@ export default function Checkout() {
           : 0;
 
         const orderTotal = orderSubtotal + orderShipping + adminExtraCharges;
-        const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        // Generate date-based order number via DB function
+        const { data: orderNumData } = await supabase.rpc('generate_order_number');
+        const orderNumber = orderNumData || `ORD-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
 
         // Estimated delivery date
         const deliveryDays = isTN
