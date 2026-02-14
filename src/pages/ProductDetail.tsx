@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2, ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Eye, Zap, Package, Thermometer, AlertTriangle, Expand } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Eye, Zap, Package, Thermometer, AlertTriangle, Expand, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProduct } from '@/hooks/useProducts';
 import { useAddToCart, useCart } from '@/hooks/useCart';
@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ImageZoomModal } from '@/components/product/ImageZoomModal';
 import { ProductReviewSection } from '@/components/product/ProductReviewSection';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { Input } from '@/components/ui/input';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +30,24 @@ export default function ProductDetail() {
   const [currentImage, setCurrentImage] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [pincode, setPincode] = useState('');
+  const [pincodeChecked, setPincodeChecked] = useState(false);
+
+  // Fetch admin settings for delivery estimation
+  const { data: deliverySettings } = useQuery({
+    queryKey: ['product-delivery-settings', product?.admin_id],
+    queryFn: async () => {
+      if (!product?.admin_id) return null;
+      const { data } = await supabase.from('admin_settings').select('delivery_within_tamilnadu_days, delivery_outside_tamilnadu_days, free_delivery_above').eq('admin_id', product.admin_id).maybeSingle();
+      return data;
+    },
+    enabled: !!product?.admin_id,
+  });
+
+  const isTamilNaduPincode = (pin: string) => {
+    const p = parseInt(pin);
+    return p >= 600000 && p <= 643999;
+  };
 
   if (isLoading) {
     return (
@@ -83,10 +104,13 @@ export default function ProductDetail() {
   const minQty = extendedProduct.min_quantity || 1;
   const maxQty = Math.min(extendedProduct.max_quantity || 10, product.stock_quantity);
 
-  // Weight-based pricing for food shops (kg, g, etc.)
+  // Display label: always use unit_label for display (e.g., "ml" not "volume")
+  const displayUnit = unitLabel;
+
+  // Weight-based pricing for food shops (kg, g, l, ml, etc.)
   const isWeightBased = ['kg', 'g', 'l', 'ml'].includes(unitType?.toLowerCase()) || ['kg', 'g', 'l', 'ml'].includes(unitLabel?.toLowerCase());
-  const baseWeight = unitValue || 1; // e.g., 1 (kg)
-  const pricePerUnit = product.price / baseWeight; // price per 1 kg/g/l/ml
+  const baseWeight = unitValue || 1;
+  const pricePerUnit = product.price / baseWeight;
   const selectedWeight = customWeight ?? baseWeight;
   const calculatedPrice = isWeightBased ? pricePerUnit * selectedWeight : product.price * quantity;
 
@@ -192,7 +216,7 @@ export default function ProductDetail() {
 
       {/* Image Gallery */}
       <div 
-        className="relative aspect-square overflow-hidden bg-muted"
+        className="relative aspect-[4/3] sm:aspect-square lg:aspect-[4/3] max-h-[50vh] sm:max-h-[60vh] lg:max-h-[500px] overflow-hidden bg-muted mx-auto w-full"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -283,9 +307,9 @@ export default function ProductDetail() {
         />
 
         {/* Unit Info */}
-        {extendedProduct.unit_value && extendedProduct.unit_type && (
+        {extendedProduct.unit_value && (
           <p className="mt-2 text-sm text-muted-foreground">
-            {extendedProduct.unit_value} {extendedProduct.unit_type}
+            {extendedProduct.unit_value} {displayUnit}
           </p>
         )}
 
@@ -317,27 +341,54 @@ export default function ProductDetail() {
           )}
         </div>
 
+        {/* Pincode Delivery Check */}
+        {deliverySettings && (
+          <div className="mt-3 flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Input
+              type="text"
+              placeholder="Enter pincode"
+              maxLength={6}
+              value={pincode}
+              onChange={(e) => { setPincode(e.target.value.replace(/\D/g, '')); setPincodeChecked(false); }}
+              className="h-8 w-28 text-xs"
+            />
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { if (pincode.length === 6) setPincodeChecked(true); }} disabled={pincode.length !== 6}>
+              Check
+            </Button>
+            {pincodeChecked && pincode.length === 6 && (
+              <span className="text-xs text-primary flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                ~{isTamilNaduPincode(pincode) ? (deliverySettings as any).delivery_within_tamilnadu_days || 3 : (deliverySettings as any).delivery_outside_tamilnadu_days || 7} days
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Quantity / Weight Selector - always show weight selector for unit_type based products */}
         {product.stock_quantity > 0 && (
           <>
             {isWeightBased ? (
               <div className="mt-4 space-y-3">
                 <span className="text-sm font-medium">
-                  Select Weight ({unitType}):
+                  Select Weight ({displayUnit}):
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  Base: {baseWeight}{unitType} = ₹{product.price.toLocaleString('en-IN')}
+                  Base: {baseWeight} {displayUnit} = ₹{product.price.toLocaleString('en-IN')}
                 </p>
                 {/* Quick weight presets */}
                 <div className="flex flex-wrap gap-2">
                   {(() => {
-                    const presets = unitType?.toLowerCase() === 'kg'
+                    const lbl = displayUnit?.toLowerCase();
+                    const presets = lbl === 'kg'
                       ? [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5]
-                      : unitType?.toLowerCase() === 'g'
+                      : lbl === 'g'
                         ? [100, 200, 250, 500, 750, 1000]
-                        : unitType?.toLowerCase() === 'l'
+                        : lbl === 'l'
                           ? [0.25, 0.5, 1, 2, 5]
-                          : [50, 100, 200, 500, 1000];
+                          : lbl === 'ml'
+                            ? [50, 100, 200, 250, 500, 1000]
+                            : [50, 100, 200, 500, 1000];
                     return presets.map((w) => (
                       <button
                         key={w}
@@ -349,7 +400,7 @@ export default function ProductDetail() {
                             : 'border-border hover:bg-muted'
                         )}
                       >
-                        {w}{unitType}
+                        {w} {displayUnit}
                       </button>
                     ));
                   })()}
@@ -365,7 +416,7 @@ export default function ProductDetail() {
                     onChange={(e) => setCustomWeight(parseFloat(e.target.value) || 0)}
                     className="w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   />
-                  <span className="text-sm text-muted-foreground">{unitType}</span>
+                  <span className="text-sm text-muted-foreground">{displayUnit}</span>
                 </div>
                 <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
                   <div className="flex items-center justify-between">
@@ -375,13 +426,13 @@ export default function ProductDetail() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {selectedWeight}{unitType} × ₹{pricePerUnit.toFixed(2)}/{unitType}
+                    {selectedWeight} {displayUnit} × ₹{pricePerUnit.toFixed(2)}/{displayUnit}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="mt-4 flex items-center gap-4">
-                <span className="text-sm font-medium">Quantity ({unitLabel}):</span>
+                <span className="text-sm font-medium">Quantity ({displayUnit}):</span>
                 <div className="flex items-center gap-3">
                   <Button
                     variant="outline"
