@@ -99,6 +99,7 @@ export type Database = {
           created_at: string
           cutting_charges: number | null
           delivery_outside_tamilnadu_days: number | null
+          delivery_slots: Json | null
           delivery_within_tamilnadu_days: number | null
           extra_delivery_charges: number | null
           free_delivery_above: number | null
@@ -113,6 +114,9 @@ export type Database = {
           phonepe_salt_key: string | null
           razorpay_key_id: string | null
           razorpay_key_secret: string | null
+          same_day_cutoff_time: string | null
+          same_day_delivery_charge: number | null
+          same_day_delivery_enabled: boolean | null
           self_pickup_enabled: boolean | null
           service_area_enabled: boolean | null
           service_area_lat: number | null
@@ -134,6 +138,7 @@ export type Database = {
           created_at?: string
           cutting_charges?: number | null
           delivery_outside_tamilnadu_days?: number | null
+          delivery_slots?: Json | null
           delivery_within_tamilnadu_days?: number | null
           extra_delivery_charges?: number | null
           free_delivery_above?: number | null
@@ -148,6 +153,9 @@ export type Database = {
           phonepe_salt_key?: string | null
           razorpay_key_id?: string | null
           razorpay_key_secret?: string | null
+          same_day_cutoff_time?: string | null
+          same_day_delivery_charge?: number | null
+          same_day_delivery_enabled?: boolean | null
           self_pickup_enabled?: boolean | null
           service_area_enabled?: boolean | null
           service_area_lat?: number | null
@@ -169,6 +177,7 @@ export type Database = {
           created_at?: string
           cutting_charges?: number | null
           delivery_outside_tamilnadu_days?: number | null
+          delivery_slots?: Json | null
           delivery_within_tamilnadu_days?: number | null
           extra_delivery_charges?: number | null
           free_delivery_above?: number | null
@@ -183,6 +192,9 @@ export type Database = {
           phonepe_salt_key?: string | null
           razorpay_key_id?: string | null
           razorpay_key_secret?: string | null
+          same_day_cutoff_time?: string | null
+          same_day_delivery_charge?: number | null
+          same_day_delivery_enabled?: boolean | null
           self_pickup_enabled?: boolean | null
           service_area_enabled?: boolean | null
           service_area_lat?: number | null
@@ -375,6 +387,81 @@ export type Database = {
           },
         ]
       }
+      delivery_partners: {
+        Row: {
+          admin_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      delivery_tracking: {
+        Row: {
+          created_at: string
+          id: string
+          latitude: number
+          longitude: number
+          order_id: string
+          partner_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          latitude: number
+          longitude: number
+          order_id: string
+          partner_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          order_id?: string
+          partner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_tracking_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_tracking_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faqs: {
         Row: {
           admin_id: string
@@ -407,6 +494,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      inventory_details: {
+        Row: {
+          admin_id: string
+          cost_price: number | null
+          created_at: string
+          expiry_date: string | null
+          id: string
+          low_stock_alert_level: number | null
+          product_id: string
+          purchase_date: string | null
+          purchase_supplier: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_id: string
+          cost_price?: number | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          low_stock_alert_level?: number | null
+          product_id: string
+          purchase_date?: string | null
+          purchase_supplier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string
+          cost_price?: number | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          low_stock_alert_level?: number | null
+          product_id?: string
+          purchase_date?: string | null
+          purchase_supplier?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_details_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_feedback: {
         Row: {
@@ -540,6 +674,9 @@ export type Database = {
           courier_tracking_url: string | null
           created_at: string
           delivered_at: string | null
+          delivery_partner_id: string | null
+          delivery_slot: string | null
+          delivery_type: string | null
           estimated_delivery_date: string | null
           id: string
           notes: string | null
@@ -564,6 +701,9 @@ export type Database = {
           courier_tracking_url?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_partner_id?: string | null
+          delivery_slot?: string | null
+          delivery_type?: string | null
           estimated_delivery_date?: string | null
           id?: string
           notes?: string | null
@@ -588,6 +728,9 @@ export type Database = {
           courier_tracking_url?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_partner_id?: string | null
+          delivery_slot?: string | null
+          delivery_type?: string | null
           estimated_delivery_date?: string | null
           id?: string
           notes?: string | null
@@ -611,6 +754,13 @@ export type Database = {
             columns: ["address_id"]
             isOneToOne: false
             referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_delivery_partner_id_fkey"
+            columns: ["delivery_partner_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_partners"
             referencedColumns: ["id"]
           },
           {
@@ -836,6 +986,54 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      stock_history: {
+        Row: {
+          admin_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          order_id: string | null
+          product_id: string
+          quantity_change: number
+          type: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          product_id: string
+          quantity_change: number
+          type: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          product_id?: string
+          quantity_change?: number
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       store_policies: {
         Row: {
@@ -1088,7 +1286,7 @@ export type Database = {
     }
     Enums: {
       admin_status: "active" | "paused"
-      app_role: "super_admin" | "admin" | "user"
+      app_role: "super_admin" | "admin" | "user" | "delivery_partner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1217,7 +1415,7 @@ export const Constants = {
   public: {
     Enums: {
       admin_status: ["active", "paused"],
-      app_role: ["super_admin", "admin", "user"],
+      app_role: ["super_admin", "admin", "user", "delivery_partner"],
     },
   },
 } as const

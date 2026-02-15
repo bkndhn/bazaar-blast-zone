@@ -41,6 +41,11 @@ import AdminBanners from "./pages/admin/Banners";
 import AdminSupport from "./pages/admin/SupportTickets";
 import AdminSupportSettings from "./pages/admin/SupportSettings";
 import AdminPaymentReports from "./pages/admin/PaymentReports";
+import AdminInventory from "./pages/admin/Inventory";
+import AdminDeliveryPartners from "./pages/admin/DeliveryPartners";
+
+// Delivery Partner Pages
+import DeliveryPartner from "./pages/DeliveryPartner";
 
 // Super Admin Pages
 import SuperAdminDashboard from "./pages/super-admin/Dashboard";
@@ -112,6 +117,11 @@ const App = () => (
               <Route path="/admin/payment-reports" element={<AdminPaymentReports />} />
               <Route path="/admin/support" element={<AdminSupport />} />
               <Route path="/admin/support-settings" element={<AdminSupportSettings />} />
+              <Route path="/admin/inventory" element={<AdminInventory />} />
+              <Route path="/admin/delivery-partners" element={<AdminDeliveryPartners />} />
+
+              {/* Delivery Partner Route */}
+              <Route path="/delivery" element={<DeliveryPartner />} />
 
               {/* Super Admin Routes */}
               <Route path="/super-admin" element={<SuperAdminDashboard />} />

@@ -15,7 +15,9 @@ import {
   MessageCircle,
   HelpCircle,
   Menu,
-  IndianRupee
+  IndianRupee,
+  Warehouse,
+  Truck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -30,6 +32,8 @@ const adminNavItems = [
   { icon: FolderOpen, label: 'Categories', path: '/admin/categories' },
   { icon: Image, label: 'Banners', path: '/admin/banners' },
   { icon: ShoppingCart, label: 'Orders', path: '/admin/orders' },
+  { icon: Warehouse, label: 'Inventory', path: '/admin/inventory' },
+  { icon: Truck, label: 'Delivery', path: '/admin/delivery-partners' },
   { icon: Users, label: 'CRM', path: '/admin/crm' },
   { icon: IndianRupee, label: 'Payments', path: '/admin/payment-reports' },
   { icon: MessageCircle, label: 'Tickets', path: '/admin/support' },

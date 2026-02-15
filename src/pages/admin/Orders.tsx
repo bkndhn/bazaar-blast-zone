@@ -203,7 +203,7 @@ export default function AdminOrders() {
 
       await supabase.from('order_status_history').insert({ order_id: data.orderId, admin_id: user!.id, status: data.status, notes: data.notes || null });
 
-      // Reduce stock on delivered
+      // Reduce stock on delivered + log stock history
       if (data.status === 'delivered') {
         const { data: orderItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', data.orderId);
         if (orderItems) {
@@ -211,7 +211,44 @@ export default function AdminOrders() {
             if (item.product_id) {
               const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
               if (product) {
-                await supabase.from('products').update({ stock_quantity: Math.max(0, product.stock_quantity - item.quantity) }).eq('id', item.product_id);
+                const newStock = Math.max(0, product.stock_quantity - item.quantity);
+                await supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+                // Log stock history
+                await supabase.from('stock_history').insert({
+                  product_id: item.product_id,
+                  admin_id: user!.id,
+                  order_id: data.orderId,
+                  quantity_change: -item.quantity,
+                  type: 'sale',
+                  notes: `Order delivered`,
+                });
+                // Auto-disable if out of stock
+                if (newStock <= 0) {
+                  await supabase.from('products').update({ is_active: false }).eq('id', item.product_id);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Restore stock on cancellation
+      if (data.status === 'cancelled') {
+        const { data: orderItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', data.orderId);
+        if (orderItems) {
+          for (const item of orderItems) {
+            if (item.product_id) {
+              const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+              if (product) {
+                await supabase.from('products').update({ stock_quantity: product.stock_quantity + item.quantity }).eq('id', item.product_id);
+                await supabase.from('stock_history').insert({
+                  product_id: item.product_id,
+                  admin_id: user!.id,
+                  order_id: data.orderId,
+                  quantity_change: item.quantity,
+                  type: 'cancellation',
+                  notes: `Order cancelled - stock restored`,
+                });
               }
             }
           }

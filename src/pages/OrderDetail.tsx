@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Package, Truck, CheckCircle, Clock, MapPin, Phone, Star, MessageSquare, ExternalLink } from 'lucide-react';
+import { LiveTrackingMap } from '@/components/tracking/LiveTrackingMap';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -272,6 +273,23 @@ export default function OrderDetail() {
             </div>
           )}
         </div>
+
+        {/* Live Tracking Map - show when out for delivery */}
+        {order.status === 'out_for_delivery' && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <h2 className="font-semibold mb-3">📍 Live Tracking</h2>
+            <LiveTrackingMap
+              orderId={order.id}
+              deliveryAddress={(() => {
+                const locLink = orderData.address?.location_link;
+                if (!locLink) return null;
+                const match = locLink.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+                if (!match) return null;
+                return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+              })()}
+            />
+          </div>
+        )}
 
         {/* Status History */}
         {statusHistory.length > 0 && (() => {
