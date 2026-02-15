@@ -192,6 +192,18 @@ export default function Checkout() {
         return acc;
       }, {} as Record<string, { storeId: string; items: typeof cart }>);
 
+      // Stock validation - prevent selling if stock < order quantity
+      for (const [adminId, { storeId, items }] of Object.entries(itemsByAdmin)) {
+        for (const item of items) {
+          if (item.product_id) {
+            const { data: prod } = await supabase.from('products').select('stock_quantity, name').eq('id', item.product_id).single();
+            if (prod && prod.stock_quantity < item.quantity) {
+              throw new Error(`"${prod.name}" has only ${prod.stock_quantity} in stock but you're ordering ${item.quantity}`);
+            }
+          }
+        }
+      }
+
       for (const [adminId, { storeId, items }] of Object.entries(itemsByAdmin)) {
         const orderSubtotal = items.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
 
@@ -215,9 +227,10 @@ export default function Checkout() {
         const orderNumber = orderNumData || `ORD-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
 
         // Estimated delivery date
-        const deliveryDays = isTN
+        const isSameDay = deliveryMethod === 'same_day';
+        const deliveryDays = isSameDay ? 0 : (isTN
           ? (settings?.delivery_within_tamilnadu_days || 3)
-          : (settings?.delivery_outside_tamilnadu_days || 7);
+          : (settings?.delivery_outside_tamilnadu_days || 7));
         const estDate = new Date();
         estDate.setDate(estDate.getDate() + deliveryDays);
 
@@ -336,7 +349,8 @@ export default function Checkout() {
             shipping_cost: orderShipping,
             total: orderTotal,
             estimated_delivery_date: estDate.toISOString().split('T')[0],
-          })
+            delivery_type: isSameDay ? 'same_day' : 'standard',
+          } as any)
           .select()
           .single();
 
@@ -499,6 +513,35 @@ export default function Checkout() {
                 </RadioGroup>
               </>
             )}
+
+            {/* Same-Day Delivery Option */}
+            {deliveryMethod !== 'self_pickup' && adminSettings?.some((s: any) => s.same_day_delivery_enabled) && (() => {
+              const sameDayAdmin = adminSettings.find((s: any) => s.same_day_delivery_enabled);
+              const cutoffTime = (sameDayAdmin as any)?.same_day_cutoff_time || '14:00';
+              const now = new Date();
+              const [cutH, cutM] = cutoffTime.split(':').map(Number);
+              const cutoff = new Date();
+              cutoff.setHours(cutH, cutM, 0, 0);
+              const isBeforeCutoff = now < cutoff;
+              const sameDayCharge = (sameDayAdmin as any)?.same_day_delivery_charge || 0;
+
+              if (!isBeforeCutoff) return null;
+              return (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">Same-Day Delivery Available!</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Order before {cutoffTime} to get it today {sameDayCharge > 0 ? `(+₹${sameDayCharge})` : '(Free)'}</p>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={deliveryMethod === 'same_day'} onChange={(e) => setDeliveryMethod(e.target.checked ? 'same_day' : 'delivery')} className="rounded" />
+                      <span className="text-sm font-medium">Enable Same-Day Delivery</span>
+                    </label>
+                  </div>
+                </div>
+              );
+            })()}
 
             <h2 className="font-semibold">Select Payment Method</h2>
 
