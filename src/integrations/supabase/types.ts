@@ -308,6 +308,8 @@ export type Database = {
       cart_items: {
         Row: {
           created_at: string
+          custom_unit: string | null
+          custom_weight: number | null
           id: string
           product_id: string
           quantity: number
@@ -316,6 +318,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_unit?: string | null
+          custom_weight?: number | null
           id?: string
           product_id: string
           quantity?: number
@@ -324,6 +328,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_unit?: string | null
+          custom_weight?: number | null
           id?: string
           product_id?: string
           quantity?: number
@@ -581,6 +587,8 @@ export type Database = {
         Row: {
           admin_id: string
           created_at: string
+          custom_unit: string | null
+          custom_weight: number | null
           id: string
           order_id: string
           product_id: string | null
@@ -593,6 +601,8 @@ export type Database = {
         Insert: {
           admin_id: string
           created_at?: string
+          custom_unit?: string | null
+          custom_weight?: number | null
           id?: string
           order_id: string
           product_id?: string | null
@@ -605,6 +615,8 @@ export type Database = {
         Update: {
           admin_id?: string
           created_at?: string
+          custom_unit?: string | null
+          custom_weight?: number | null
           id?: string
           order_id?: string
           product_id?: string | null
