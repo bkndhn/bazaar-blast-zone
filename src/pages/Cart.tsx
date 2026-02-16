@@ -62,8 +62,18 @@ export default function Cart() {
     );
   }
 
+  // Calculate price considering custom weights
+  const getItemPrice = (item: typeof cart[number]) => {
+    if (item.custom_weight && item.product) {
+      const baseWeight = (item.product as any).unit_value || 1;
+      const pricePerUnit = item.product.price / baseWeight;
+      return Math.round(pricePerUnit * item.custom_weight) * item.quantity;
+    }
+    return (item.product?.price || 0) * item.quantity;
+  };
+
   const subtotal = cart.reduce(
-    (sum, item) => sum + (item.product?.price || 0) * item.quantity,
+    (sum, item) => sum + getItemPrice(item),
     0
   );
 
@@ -107,13 +117,18 @@ export default function Cart() {
                   >
                     {item.product?.name}
                   </Link>
-                  <span className="mt-1 text-xs text-muted-foreground">
+                  <span className="mt-0.5 text-xs text-muted-foreground">
                     {item.product?.store?.name}
                   </span>
+                  {item.custom_weight && (
+                    <span className="mt-0.5 text-xs font-medium text-primary">
+                      {item.custom_weight} {item.custom_unit || (item.product as any)?.unit_label || 'g'}
+                    </span>
+                  )}
 
                   <div className="mt-auto flex items-center justify-between">
                     <span className="font-semibold">
-                      ₹{((item.product?.price || 0) * item.quantity).toLocaleString('en-IN')}
+                      ₹{getItemPrice(item).toLocaleString('en-IN')}
                     </span>
 
                     {/* Quantity Controls */}

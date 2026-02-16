@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
-import { ArrowLeft, MapPin, CreditCard, Plus, Check, Truck, ShoppingBag, AlertTriangle, Clock } from 'lucide-react';
+import { ArrowLeft, MapPin, CreditCard, Plus, Check, Truck, ShoppingBag, AlertTriangle, Clock, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -36,6 +36,7 @@ export default function Checkout() {
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('cod');
   const [deliveryMethod, setDeliveryMethod] = useState<string>('delivery');
+  const [selectedSlot, setSelectedSlot] = useState<string>('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [serviceAreaError, setServiceAreaError] = useState<string | null>(null);
 
@@ -112,7 +113,17 @@ export default function Checkout() {
   if (!user) { navigate('/auth'); return null; }
   if (!cart?.length) { navigate('/cart'); return null; }
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
+  // Calculate price considering custom weights
+  const getItemPrice = (item: typeof cart[number]) => {
+    if ((item as any).custom_weight && item.product) {
+      const baseWeight = (item.product as any).unit_value || 1;
+      const pricePerUnit = (item.product.price || 0) / baseWeight;
+      return Math.round(pricePerUnit * (item as any).custom_weight) * item.quantity;
+    }
+    return (item.product?.price || 0) * item.quantity;
+  };
+
+  const subtotal = cart.reduce((sum, item) => sum + getItemPrice(item), 0);
   
   const selectedAddr = addresses?.find(a => a.id === selectedAddress);
   const isTN = selectedAddr 
@@ -134,7 +145,7 @@ export default function Checkout() {
 
     Object.entries(itemsByAdmin).forEach(([adminId, items]) => {
       const settings = adminSettings.find(s => s.admin_id === adminId);
-      const adminSubtotal = items.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
+      const adminSubtotal = items.reduce((sum, item) => sum + getItemPrice(item), 0);
 
       const shippingCost = settings
         ? (isTN ? (settings.shipping_cost_within_tamilnadu || 0) : (settings.shipping_cost_outside_tamilnadu || 0))
@@ -205,7 +216,7 @@ export default function Checkout() {
       }
 
       for (const [adminId, { storeId, items }] of Object.entries(itemsByAdmin)) {
-        const orderSubtotal = items.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0);
+        const orderSubtotal = items.reduce((sum, item) => sum + getItemPrice(item), 0);
 
         const settings = adminSettings?.find(s => s.admin_id === adminId);
 
@@ -350,22 +361,28 @@ export default function Checkout() {
             total: orderTotal,
             estimated_delivery_date: estDate.toISOString().split('T')[0],
             delivery_type: isSameDay ? 'same_day' : 'standard',
+            delivery_slot: selectedSlot || null,
           } as any)
           .select()
           .single();
 
         if (orderError) throw orderError;
 
-        const orderItems = items.map(item => ({
-          order_id: order.id,
-          product_id: item.product_id,
-          admin_id: adminId,
-          product_name: item.product?.name || 'Unknown Product',
-          product_image: item.product?.images?.[0]?.image_url || null,
-          quantity: item.quantity,
-          unit_price: item.product?.price || 0,
-          total_price: (item.product?.price || 0) * item.quantity,
-        }));
+        const orderItems = items.map(item => {
+          const itemPrice = getItemPrice(item);
+          return {
+            order_id: order.id,
+            product_id: item.product_id,
+            admin_id: adminId,
+            product_name: item.product?.name || 'Unknown Product',
+            product_image: item.product?.images?.[0]?.image_url || null,
+            quantity: item.quantity,
+            unit_price: itemPrice / item.quantity,
+            total_price: itemPrice,
+            custom_weight: (item as any).custom_weight || null,
+            custom_unit: (item as any).custom_unit || null,
+          };
+        });
 
         const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
         if (itemsError) throw itemsError;
@@ -542,6 +559,37 @@ export default function Checkout() {
                 </div>
               );
             })()}
+            {/* Delivery Slot Selection */}
+            {deliveryMethod !== 'self_pickup' && (() => {
+              const slotsAdmin = adminSettings?.find((s: any) => s.delivery_slots);
+              const slots: string[] = slotsAdmin ? (Array.isArray((slotsAdmin as any).delivery_slots) ? (slotsAdmin as any).delivery_slots : JSON.parse((slotsAdmin as any).delivery_slots || '[]')) : [];
+              if (!slots.length) return null;
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                    <h2 className="font-semibold text-sm">Preferred Delivery Slot</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {slots.map((slot: string) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setSelectedSlot(selectedSlot === slot ? '' : slot)}
+                        className={cn(
+                          'rounded-lg border p-2.5 text-xs font-medium transition-colors text-center',
+                          selectedSlot === slot
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border hover:bg-muted'
+                        )}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             <h2 className="font-semibold">Select Payment Method</h2>
 
@@ -605,8 +653,13 @@ export default function Checkout() {
                     <img src={image} alt={item.product?.name} className="h-16 w-16 rounded object-cover" />
                     <div className="flex-1">
                       <p className="line-clamp-1 text-sm font-medium">{item.product?.name}</p>
-                      <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                      <p className="font-medium">₹{((item.product?.price || 0) * item.quantity).toLocaleString('en-IN')}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {(item as any).custom_weight 
+                          ? `${(item as any).custom_weight} ${(item as any).custom_unit || (item.product as any)?.unit_label || 'g'} × ${item.quantity}`
+                          : `Qty: ${item.quantity}`
+                        }
+                      </p>
+                      <p className="font-medium">₹{getItemPrice(item).toLocaleString('en-IN')}</p>
                     </div>
                   </div>
                 );
@@ -650,7 +703,13 @@ export default function Checkout() {
               {deliveryMethod === 'self_pickup' && (
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Delivery Method</p>
-                  <p className="mt-1 font-medium text-emerald-600">🏪 Self Pickup</p>
+                  <p className="mt-1 font-medium text-success">🏪 Self Pickup</p>
+                </div>
+              )}
+              {selectedSlot && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Delivery Slot</p>
+                  <p className="mt-1 text-sm font-medium">{selectedSlot}</p>
                 </div>
               )}
               <div>

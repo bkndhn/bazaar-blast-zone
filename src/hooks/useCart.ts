@@ -8,6 +8,8 @@ export interface CartItem {
   user_id: string;
   product_id: string;
   quantity: number;
+  custom_weight: number | null;
+  custom_unit: string | null;
   created_at: string;
   product?: {
     id: string;
@@ -17,6 +19,9 @@ export interface CartItem {
     stock_quantity: number;
     admin_id: string;
     store_id: string;
+    unit_value: number | null;
+    unit_label: string | null;
+    unit_type: string | null;
     images: { image_url: string; is_primary: boolean }[];
     store: { name: string };
   };
@@ -42,6 +47,9 @@ export function useCart() {
             stock_quantity,
             admin_id,
             store_id,
+            unit_value,
+            unit_label,
+            unit_type,
             images:product_images(image_url, is_primary),
             store:stores(name)
           )
@@ -61,30 +69,39 @@ export function useAddToCart() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ productId, quantity = 1 }: { productId: string; quantity?: number }) => {
+    mutationFn: async ({ productId, quantity = 1, customWeight, customUnit }: { productId: string; quantity?: number; customWeight?: number | null; customUnit?: string | null }) => {
       if (!user) throw new Error('Must be logged in to add to cart');
 
-      // Check if already in cart
-      const { data: existing } = await supabase
+      // Check if already in cart with same custom weight
+      const { data: existingItems } = await supabase
         .from('cart_items')
-        .select('id, quantity')
+        .select('id, quantity, custom_weight')
         .eq('user_id', user.id)
-        .eq('product_id', productId)
-        .single();
+        .eq('product_id', productId);
+
+      // Find matching item (same weight for weight-based, or no weight for regular)
+      const existing = existingItems?.find(item => {
+        if (customWeight != null) return (item as any).custom_weight === customWeight;
+        return (item as any).custom_weight == null;
+      });
 
       if (existing) {
         // Update quantity
         const { error } = await supabase
           .from('cart_items')
-          .update({ quantity: existing.quantity + quantity })
+          .update({ quantity: existing.quantity + quantity } as any)
           .eq('id', existing.id);
 
         if (error) throw error;
       } else {
-        // Insert new
+        // Insert new with custom weight
+        const insertData: any = { user_id: user.id, product_id: productId, quantity };
+        if (customWeight != null) insertData.custom_weight = customWeight;
+        if (customUnit) insertData.custom_unit = customUnit;
+        
         const { error } = await supabase
           .from('cart_items')
-          .insert({ user_id: user.id, product_id: productId, quantity });
+          .insert(insertData);
 
         if (error) throw error;
       }

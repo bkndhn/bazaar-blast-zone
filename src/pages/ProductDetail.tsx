@@ -144,7 +144,12 @@ export default function ProductDetail() {
       navigate('/auth', { state: { returnTo: `/product/${product.id}` } });
       return;
     }
-    addToCart.mutate({ productId: product.id, quantity: isWeightBased ? 1 : quantity });
+    addToCart.mutate({ 
+      productId: product.id, 
+      quantity: isWeightBased ? 1 : quantity,
+      customWeight: isWeightBased ? selectedWeight : null,
+      customUnit: isWeightBased ? displayUnit : null,
+    });
   };
 
   const handleBuyNow = () => {
@@ -158,7 +163,12 @@ export default function ProductDetail() {
     }
     // Add to cart first then go to checkout
     addToCart.mutate(
-      { productId: product.id, quantity },
+      { 
+        productId: product.id, 
+        quantity: isWeightBased ? 1 : quantity,
+        customWeight: isWeightBased ? selectedWeight : null,
+        customUnit: isWeightBased ? displayUnit : null,
+      },
       {
         onSuccess: () => {
           navigate('/checkout');

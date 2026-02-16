@@ -88,6 +88,10 @@ export default function AdminSettings() {
     service_area_lng: 0,
     service_area_radius_km: 10,
     free_delivery_above: 0,
+    same_day_delivery_enabled: false,
+    same_day_cutoff_time: '14:00',
+    same_day_delivery_charge: 0,
+    delivery_slots: '["9:00 AM - 12:00 PM", "12:00 PM - 3:00 PM", "3:00 PM - 6:00 PM", "6:00 PM - 9:00 PM"]',
   });
 
   // Helper to convert Hex to HSL (approximate)
@@ -196,6 +200,10 @@ export default function AdminSettings() {
         service_area_lng: (adminSettings as any).service_area_lng || 0,
         service_area_radius_km: (adminSettings as any).service_area_radius_km || 10,
         free_delivery_above: (adminSettings as any).free_delivery_above || 0,
+        same_day_delivery_enabled: (adminSettings as any).same_day_delivery_enabled || false,
+        same_day_cutoff_time: (adminSettings as any).same_day_cutoff_time || '14:00',
+        same_day_delivery_charge: (adminSettings as any).same_day_delivery_charge || 0,
+        delivery_slots: JSON.stringify((adminSettings as any).delivery_slots || ["9:00 AM - 12:00 PM", "12:00 PM - 3:00 PM", "3:00 PM - 6:00 PM", "6:00 PM - 9:00 PM"]),
       });
     }
   }, [adminSettings]);
@@ -287,6 +295,10 @@ export default function AdminSettings() {
           service_area_lng: deliverySettings.service_area_lng,
           service_area_radius_km: deliverySettings.service_area_radius_km,
           free_delivery_above: deliverySettings.free_delivery_above,
+          same_day_delivery_enabled: deliverySettings.same_day_delivery_enabled,
+          same_day_cutoff_time: deliverySettings.same_day_cutoff_time,
+          same_day_delivery_charge: deliverySettings.same_day_delivery_charge,
+          delivery_slots: JSON.parse(deliverySettings.delivery_slots || '[]'),
         } as any, { onConflict: 'admin_id' });
 
       if (error) throw error;
@@ -422,6 +434,64 @@ export default function AdminSettings() {
                     </p>
                   </div>
                 )}
+
+                {/* Same-Day Delivery */}
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Same-Day Delivery</Label>
+                    <p className="text-sm text-muted-foreground">Enable same-day delivery option for customers</p>
+                  </div>
+                  <Switch
+                    checked={deliverySettings.same_day_delivery_enabled}
+                    onCheckedChange={(checked) => setDeliverySettings({ ...deliverySettings, same_day_delivery_enabled: checked })}
+                  />
+                </div>
+
+                {deliverySettings.same_day_delivery_enabled && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Cutoff Time</Label>
+                        <Input
+                          type="time"
+                          value={deliverySettings.same_day_cutoff_time}
+                          onChange={(e) => setDeliverySettings({ ...deliverySettings, same_day_cutoff_time: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">Orders after this time won't get same-day option</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Same-Day Charge (₹)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={deliverySettings.same_day_delivery_charge}
+                          onChange={(e) => setDeliverySettings({ ...deliverySettings, same_day_delivery_charge: parseFloat(e.target.value) || 0 })}
+                        />
+                        <p className="text-xs text-muted-foreground">Extra charge for same-day delivery (0 = free)</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delivery Slots */}
+                <div className="space-y-2">
+                  <Label className="text-base">Delivery Time Slots</Label>
+                  <p className="text-xs text-muted-foreground">Customers can pick a preferred delivery slot. One slot per line.</p>
+                  <Textarea
+                    rows={4}
+                    value={(() => {
+                      try {
+                        const parsed = JSON.parse(deliverySettings.delivery_slots || '[]');
+                        return Array.isArray(parsed) ? parsed.join('\n') : '';
+                      } catch { return ''; }
+                    })()}
+                    onChange={(e) => {
+                      const lines = e.target.value.split('\n').filter(l => l.trim());
+                      setDeliverySettings({ ...deliverySettings, delivery_slots: JSON.stringify(lines) });
+                    }}
+                    placeholder="9:00 AM - 12:00 PM&#10;12:00 PM - 3:00 PM&#10;3:00 PM - 6:00 PM"
+                  />
+                </div>
               </div>
 
               <Button type="submit" className="w-full" disabled={saveDeliverySettings.isPending}>
