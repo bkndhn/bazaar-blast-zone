@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, AlertTriangle, Clock, TrendingUp, DollarSign, BarChart3, Edit2, Plus } from 'lucide-react';
+import { Package, AlertTriangle, Clock, TrendingUp, DollarSign, BarChart3, Edit2, Plus, Search, Filter } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,10 @@ export default function AdminInventory() {
   const [editDialog, setEditDialog] = useState<{ open: boolean; product: any | null }>({ open: false, product: null });
   const [adjustDialog, setAdjustDialog] = useState<{ open: boolean; product: any | null }>({ open: false, product: null });
   const [adjustForm, setAdjustForm] = useState({ quantity: '', type: 'restock' as string, notes: '' });
+
+  // Search & filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stockFilter, setStockFilter] = useState<string>('all');
 
   // Fetch products with inventory details
   const { data: products } = useQuery({
@@ -110,7 +114,6 @@ export default function AdminInventory() {
       });
       if (histError) throw histError;
 
-      // Auto-disable if out of stock
       if (newStock <= 0) {
         await supabase.from('products').update({ is_active: false }).eq('id', data.productId);
       }
@@ -149,13 +152,55 @@ export default function AdminInventory() {
     return isPast(new Date(p.inventory.expiry_date));
   }) || [];
 
-  // Profit margins
   const profitData = products?.filter(p => p.inventory?.cost_price > 0).map(p => ({
     name: p.name,
     costPrice: p.inventory.cost_price,
     sellingPrice: p.price,
     margin: ((p.price - p.inventory.cost_price) / p.price * 100).toFixed(1),
   })) || [];
+
+  // Filtered products for the Products tab
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    let filtered = products;
+
+    // Search by name or SKU
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.sku && p.sku.toLowerCase().includes(q))
+      );
+    }
+
+    // Filter by stock status
+    if (stockFilter === 'out_of_stock') {
+      filtered = filtered.filter(p => p.stock_quantity === 0);
+    } else if (stockFilter === 'low_stock') {
+      filtered = filtered.filter(p => {
+        const threshold = p.inventory?.low_stock_alert_level || 5;
+        return p.stock_quantity > 0 && p.stock_quantity <= threshold;
+      });
+    } else if (stockFilter === 'in_stock') {
+      filtered = filtered.filter(p => {
+        const threshold = p.inventory?.low_stock_alert_level || 5;
+        return p.stock_quantity > threshold;
+      });
+    } else if (stockFilter === 'expiring') {
+      filtered = filtered.filter(p => {
+        if (!p.inventory?.expiry_date) return false;
+        const daysLeft = differenceInDays(new Date(p.inventory.expiry_date), new Date());
+        return daysLeft >= 0 && daysLeft <= 7;
+      });
+    } else if (stockFilter === 'expired') {
+      filtered = filtered.filter(p => {
+        if (!p.inventory?.expiry_date) return false;
+        return isPast(new Date(p.inventory.expiry_date));
+      });
+    }
+
+    return filtered;
+  }, [products, searchQuery, stockFilter]);
 
   return (
     <AdminLayout title="Inventory">
@@ -228,14 +273,51 @@ export default function AdminInventory() {
           )}
         </TabsContent>
 
-        {/* Products */}
+        {/* Products with Search & Filter */}
         <TabsContent value="products" className="space-y-3">
-          {products?.map(p => (
+          {/* Search & Filter Bar */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or SKU..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-9"
+              />
+            </div>
+            <Select value={stockFilter} onValueChange={setStockFilter}>
+              <SelectTrigger className="w-[130px] h-9">
+                <Filter className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="in_stock">In Stock</SelectItem>
+                <SelectItem value="low_stock">Low Stock</SelectItem>
+                <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                <SelectItem value="expiring">Expiring Soon</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <p className="text-xs text-muted-foreground">{filteredProducts.length} of {products?.length || 0} products</p>
+
+          {filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Package className="h-10 w-10 text-muted-foreground/40" />
+              <p className="mt-3 text-sm text-muted-foreground">
+                {searchQuery || stockFilter !== 'all' ? 'No products match your filters' : 'No products yet'}
+              </p>
+            </div>
+          ) : filteredProducts.map(p => (
             <div key={p.id} className="flex gap-3 rounded-lg border bg-card p-3">
               <img src={p.primaryImage} alt={p.name} className="h-12 w-12 rounded object-cover" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate text-sm">{p.name}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
+                  {p.sku && <span className="text-xs text-muted-foreground">SKU: {p.sku}</span>}
                   <span className="text-xs text-muted-foreground">₹{p.price}</span>
                   {p.inventory?.cost_price > 0 && <span className="text-xs text-muted-foreground">• Cost: ₹{p.inventory.cost_price}</span>}
                   <span className={cn('text-xs', p.stock_quantity === 0 ? 'text-destructive' : p.stock_quantity <= (p.inventory?.low_stock_alert_level || 5) ? 'text-warning' : 'text-success')}>
