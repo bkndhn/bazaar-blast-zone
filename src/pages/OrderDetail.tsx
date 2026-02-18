@@ -287,6 +287,8 @@ export default function OrderDetail() {
                 if (!match) return null;
                 return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
               })()}
+              customerName={orderData.address?.full_name}
+              customerPhone={orderData.address?.phone}
             />
           </div>
         )}

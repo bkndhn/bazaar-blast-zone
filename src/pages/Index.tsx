@@ -7,11 +7,12 @@ import { useProducts } from '@/hooks/useProducts';
 import { useAllCategories } from '@/hooks/useCategories';
 import { useStore } from '@/contexts/StoreContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Store, ShoppingBag, UserPlus, LogIn, ArrowRight, Search, LayoutDashboard, Truck } from 'lucide-react';
+import { Store, ShoppingBag, UserPlus, LogIn, ArrowRight, Search, LayoutDashboard, Truck, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -60,10 +61,23 @@ const Index = () => {
     }
   }, [adminStore, isStoreRoute]);
 
+  // Fetch all active stores for dropdown
+  const { data: allStores } = useQuery({
+    queryKey: ['all-active-stores'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('stores')
+        .select('id, name, slug, logo_url')
+        .eq('is_active', true)
+        .order('name');
+      return data || [];
+    },
+    enabled: !isStoreRoute,
+  });
+
   const { data: products, isLoading } = useProducts({ adminId: adminId ?? undefined });
   const { data: categories } = useAllCategories(adminId ?? undefined);
 
-  // Fetch admin settings for free delivery info
   const { data: storeSettings } = useQuery({
     queryKey: ['store-settings-home', adminId],
     queryFn: async () => {
@@ -99,7 +113,6 @@ const Index = () => {
       <MainLayout showHeader={false}>
         <BannerCarousel adminId={adminId ?? undefined} />
         
-        {/* Free delivery banner */}
         {freeDeliveryAbove > 0 && (
           <div className="bg-primary/10 border-b border-primary/20 px-4 py-2 text-center">
             <p className="text-xs font-medium text-primary flex items-center justify-center gap-1">
@@ -109,7 +122,6 @@ const Index = () => {
           </div>
         )}
         
-        {/* Sticky category + search */}
         <div className="sticky top-0 z-40 bg-background shadow-sm pb-1">
           <CategoryScroll adminId={adminId ?? undefined} />
           <HomeSearch products={products} categories={categories} isLoading={isLoading} adminId={adminId ?? undefined} searchOnly />
@@ -138,33 +150,88 @@ const Index = () => {
         </div>
 
         <div className="space-y-4 max-w-md mx-auto w-full">
-          {/* Go to Store - Main Action */}
-          <Card className="border-primary">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ShoppingBag className="h-5 w-5 text-primary" />
-                Visit a Store
-              </CardTitle>
-              <CardDescription>Enter a store name to start shopping</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleGoToStore} className="flex gap-2">
-                <div className="flex-1 relative">
+          {/* Browse Stores Dropdown */}
+          {allStores && allStores.length > 0 && (
+            <Card className="border-primary">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShoppingBag className="h-5 w-5 text-primary" />
+                  Browse Stores
+                </CardTitle>
+                <CardDescription>Select a store to start shopping</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Select onValueChange={(slug) => navigate(`/s/${slug}`)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose a store..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allStores.map(store => (
+                      <SelectItem key={store.id} value={store.slug || store.id}>
+                        <div className="flex items-center gap-2">
+                          {store.logo_url && (
+                            <img src={store.logo_url} alt="" className="h-5 w-5 rounded-full object-cover" />
+                          )}
+                          <span>{store.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Or type manually */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">or enter store name</span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleGoToStore} className="flex gap-2">
                   <Input
                     placeholder="e.g. greensquare-organic"
                     value={storeInput}
                     onChange={(e) => setStoreInput(e.target.value)}
-                    className="pl-3"
+                    className="flex-1"
                   />
-                </div>
-                <Button type="submit" disabled={!storeInput.trim()}>
-                  <Search className="h-4 w-4 mr-1" />
-                  Go
-                </Button>
-              </form>
-              <p className="mt-2 text-xs text-muted-foreground">Ask your seller for their store name</p>
-            </CardContent>
-          </Card>
+                  <Button type="submit" disabled={!storeInput.trim()}>
+                    <Search className="h-4 w-4 mr-1" />
+                    Go
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Fallback if no stores */}
+          {(!allStores || allStores.length === 0) && (
+            <Card className="border-primary">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShoppingBag className="h-5 w-5 text-primary" />
+                  Visit a Store
+                </CardTitle>
+                <CardDescription>Enter a store name to start shopping</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleGoToStore} className="flex gap-2">
+                  <Input
+                    placeholder="e.g. greensquare-organic"
+                    value={storeInput}
+                    onChange={(e) => setStoreInput(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={!storeInput.trim()}>
+                    <Search className="h-4 w-4 mr-1" />
+                    Go
+                  </Button>
+                </form>
+                <p className="mt-2 text-xs text-muted-foreground">Ask your seller for their store name</p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* For Sellers */}
           {!user ? (
@@ -193,7 +260,6 @@ const Index = () => {
                 </CardContent>
               </Card>
 
-              {/* Login */}
               <Card className="border-dashed">
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between">
@@ -209,7 +275,6 @@ const Index = () => {
               </Card>
             </>
           ) : (
-            // User is logged in but has no lastStore - show store finder
             <Card className="bg-primary/5 border-primary/20">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
@@ -229,7 +294,6 @@ const Index = () => {
           )}
         </div>
 
-        {/* Footer Note */}
         <p className="text-center text-xs text-muted-foreground mt-8">
           Each store has its own products, categories, and branding.
         </p>

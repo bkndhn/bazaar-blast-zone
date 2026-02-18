@@ -8,9 +8,11 @@ import 'leaflet/dist/leaflet.css';
 interface LiveTrackingMapProps {
   orderId: string;
   deliveryAddress?: { lat: number; lng: number } | null;
+  customerName?: string;
+  customerPhone?: string;
 }
 
-export function LiveTrackingMap({ orderId, deliveryAddress }: LiveTrackingMapProps) {
+export function LiveTrackingMap({ orderId, deliveryAddress, customerName, customerPhone }: LiveTrackingMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -71,8 +73,11 @@ export function LiveTrackingMap({ orderId, deliveryAddress }: LiveTrackingMapPro
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
+      const popupContent = customerName 
+        ? `<div style="font-size:13px"><strong>${customerName}</strong>${customerPhone ? `<br/><a href="tel:${customerPhone}" style="color:#2563eb">${customerPhone}</a>` : ''}<br/>Delivery Address</div>`
+        : 'Delivery Address';
       L.marker([deliveryAddress.lat, deliveryAddress.lng], { icon: homeIcon }).addTo(map)
-        .bindPopup('Delivery Address');
+        .bindPopup(popupContent);
     }
 
     mapInstanceRef.current = map;
