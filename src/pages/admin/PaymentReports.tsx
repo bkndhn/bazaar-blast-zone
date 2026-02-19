@@ -9,14 +9,16 @@ import { format, subDays, startOfDay } from 'date-fns';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-type DateRange = '7d' | '30d' | '90d' | 'all';
+type DateRange = '7d' | '30d' | '90d' | 'all' | 'custom';
 
 export default function PaymentReports() {
   const { user } = useAuth();
   const [range, setRange] = useState<DateRange>('30d');
+  const [customFrom, setCustomFrom] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
+  const [customTo, setCustomTo] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const { data: orders, isLoading } = useQuery({
-    queryKey: ['payment-reports', user?.id, range],
+    queryKey: ['payment-reports', user?.id, range, customFrom, customTo],
     queryFn: async () => {
       if (!user) return [];
 
@@ -26,7 +28,10 @@ export default function PaymentReports() {
         .eq('admin_id', user.id)
         .neq('status', 'cancelled');
 
-      if (range !== 'all') {
+      if (range === 'custom') {
+        query = query.gte('created_at', startOfDay(new Date(customFrom)).toISOString())
+          .lte('created_at', new Date(new Date(customTo).setHours(23, 59, 59, 999)).toISOString());
+      } else if (range !== 'all') {
         const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
         const fromDate = startOfDay(subDays(new Date(), days)).toISOString();
         query = query.gte('created_at', fromDate);
@@ -69,8 +74,8 @@ export default function PaymentReports() {
   return (
     <AdminLayout title="Payment Reports">
       {/* Date Range Filter */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {(['7d', '30d', '90d', 'all'] as DateRange[]).map(r => (
+      <div className="mb-4 flex flex-wrap gap-2 items-end">
+        {(['7d', '30d', '90d', 'all', 'custom'] as DateRange[]).map(r => (
           <Button
             key={r}
             size="sm"
@@ -78,9 +83,31 @@ export default function PaymentReports() {
             onClick={() => setRange(r)}
             className="text-xs"
           >
-            {r === '7d' ? '7 Days' : r === '30d' ? '30 Days' : r === '90d' ? '90 Days' : 'All Time'}
+            {r === '7d' ? '7 Days' : r === '30d' ? '30 Days' : r === '90d' ? '90 Days' : r === 'all' ? 'All Time' : 'Custom'}
           </Button>
         ))}
+        {range === 'custom' && (
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+            <input
+              type="date"
+              value={customFrom}
+              onChange={(e) => {
+                setCustomFrom(e.target.value);
+                if (e.target.value > customTo) setCustomTo(e.target.value);
+              }}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs"
+            />
+          </div>
+        )}
       </div>
 
       {isLoading ? (

@@ -63,6 +63,61 @@ export default function DeliveryPartner() {
     refetchInterval: 15000,
   });
 
+  // Real-time notifications for new order assignments
+  useEffect(() => {
+    if (!partner) return;
+
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    const channel = supabase
+      .channel(`partner-orders-${partner.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `delivery_partner_id=eq.${partner.id}`,
+        },
+        (payload) => {
+          const newOrder = payload.new as any;
+          const oldOrder = payload.old as any;
+
+          // Notify when order is newly assigned (delivery_partner_id changed to this partner)
+          if (oldOrder.delivery_partner_id !== partner.id || !oldOrder.delivery_partner_id) {
+            toast({
+              title: '🚚 New Delivery Assigned!',
+              description: `Order #${newOrder.order_number} - ₹${Number(newOrder.total).toLocaleString('en-IN')}`,
+            });
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('New Delivery Assigned!', {
+                body: `Order #${newOrder.order_number} - ₹${Number(newOrder.total).toLocaleString('en-IN')}`,
+                icon: '/icons/icon-192x192.png',
+                tag: `order-${newOrder.id}`,
+              });
+            }
+
+            // Play sound
+            try {
+              const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ==');
+              audio.play().catch(() => {});
+            } catch {}
+          }
+
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [partner, refetch]);
+
   // Completed orders today
   const { data: completedToday } = useQuery({
     queryKey: ['partner-completed', partner?.id],
