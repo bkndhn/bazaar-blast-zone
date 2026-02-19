@@ -189,6 +189,10 @@ export default function AdminOrders() {
       const courier = COURIER_OPTIONS.find(c => c.value === data.courier_service);
       const trackingUrl = courier && data.tracking_number ? courier.trackingUrl + data.tracking_number : null;
 
+      // Get current order status to prevent duplicate stock operations
+      const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', data.orderId).single();
+      const previousStatus = currentOrder?.status;
+
       const updateData: any = { status: data.status, updated_at: new Date().toISOString(), payment_status: data.payment_status || undefined };
       if (data.notes !== undefined) updateData.notes = data.notes;
       if (data.tracking_number) updateData.tracking_number = data.tracking_number;
@@ -203,8 +207,8 @@ export default function AdminOrders() {
 
       await supabase.from('order_status_history').insert({ order_id: data.orderId, admin_id: user!.id, status: data.status, notes: data.notes || null });
 
-      // Reduce stock on delivered + log stock history
-      if (data.status === 'delivered') {
+      // Reduce stock on delivered - only if previous status wasn't already 'delivered'
+      if (data.status === 'delivered' && previousStatus !== 'delivered') {
         const { data: orderItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', data.orderId);
         if (orderItems) {
           for (const item of orderItems) {
@@ -213,7 +217,6 @@ export default function AdminOrders() {
               if (product) {
                 const newStock = Math.max(0, product.stock_quantity - item.quantity);
                 await supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
-                // Log stock history
                 await supabase.from('stock_history').insert({
                   product_id: item.product_id,
                   admin_id: user!.id,
@@ -222,7 +225,6 @@ export default function AdminOrders() {
                   type: 'sale',
                   notes: `Order delivered`,
                 });
-                // Auto-disable if out of stock
                 if (newStock <= 0) {
                   await supabase.from('products').update({ is_active: false }).eq('id', item.product_id);
                 }
@@ -232,23 +234,28 @@ export default function AdminOrders() {
         }
       }
 
-      // Restore stock on cancellation
-      if (data.status === 'cancelled') {
-        const { data: orderItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', data.orderId);
-        if (orderItems) {
-          for (const item of orderItems) {
-            if (item.product_id) {
-              const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-              if (product) {
-                await supabase.from('products').update({ stock_quantity: product.stock_quantity + item.quantity }).eq('id', item.product_id);
-                await supabase.from('stock_history').insert({
-                  product_id: item.product_id,
-                  admin_id: user!.id,
-                  order_id: data.orderId,
-                  quantity_change: item.quantity,
-                  type: 'cancellation',
-                  notes: `Order cancelled - stock restored`,
-                });
+      // Restore stock on cancellation - only if previous status wasn't already 'cancelled'
+      // Also only restore if the order was NOT previously delivered (stock already deducted)
+      if (data.status === 'cancelled' && previousStatus !== 'cancelled') {
+        // Only restore stock if order hasn't been delivered yet
+        const shouldRestoreStock = previousStatus !== 'delivered';
+        if (shouldRestoreStock) {
+          const { data: orderItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', data.orderId);
+          if (orderItems) {
+            for (const item of orderItems) {
+              if (item.product_id) {
+                const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+                if (product) {
+                  await supabase.from('products').update({ stock_quantity: product.stock_quantity + item.quantity }).eq('id', item.product_id);
+                  await supabase.from('stock_history').insert({
+                    product_id: item.product_id,
+                    admin_id: user!.id,
+                    order_id: data.orderId,
+                    quantity_change: item.quantity,
+                    type: 'cancellation',
+                    notes: `Order cancelled - stock restored`,
+                  });
+                }
               }
             }
           }
@@ -440,6 +447,12 @@ export default function AdminOrders() {
                     <div className="rounded bg-muted/50 p-3 text-sm space-y-1">
                       <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span>₹{Number(order.shipping_cost).toLocaleString('en-IN')}</span></div>
+                      {(() => {
+                        const extra = Number(order.total) - Number(order.subtotal) - Number(order.shipping_cost);
+                        return extra > 0 ? (
+                          <div className="flex justify-between"><span className="text-muted-foreground">Extra Charges</span><span>₹{extra.toLocaleString('en-IN')}</span></div>
+                        ) : null;
+                      })()}
                       <div className="flex justify-between font-medium border-t border-border pt-1"><span>Total</span><span>₹{Number(order.total).toLocaleString('en-IN')}</span></div>
                       <div className="flex justify-between text-xs"><span className="text-muted-foreground">Payment</span><span className="capitalize">{order.payment_method || 'COD'} • {order.payment_status || 'pending'}</span></div>
                     </div>

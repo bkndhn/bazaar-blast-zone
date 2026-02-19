@@ -441,6 +441,19 @@ export default function OrderDetail() {
                 {order.shipping_cost === 0 ? 'FREE' : `₹${order.shipping_cost.toLocaleString('en-IN')}`}
               </span>
             </div>
+            {/* Show extra charges if total > subtotal + shipping */}
+            {(() => {
+              const extraCharges = order.total - order.subtotal - order.shipping_cost;
+              if (extraCharges > 0) {
+                return (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Extra Charges</span>
+                    <span>₹{extraCharges.toLocaleString('en-IN')}</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <div className="flex justify-between pt-2 border-t border-border font-semibold">
               <span>Total</span>
               <span>₹{order.total.toLocaleString('en-IN')}</span>
